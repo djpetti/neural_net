@@ -6,7 +6,8 @@ namespace network {
 
 Neuron::Neuron() : 
     impulse_(nullptr), 
-    bias_(0) {}
+    bias_(0),
+    weight_i_(-1) {}
 
 bool Neuron::AdjustWeights(double learning_rate, double signal) {
   if (weights_.size() == inputs_.size()) {
@@ -33,6 +34,22 @@ bool Neuron::GetOutput(double *output) {
     return true;
   } else {
     return false;
+  }
+}
+
+bool Neuron::GetLastWeight(double *weight) {
+  if (weight_i_ >= 0) {
+    *weight = weights_[weight_i_--];
+    return true;
+  }
+  return false;
+}
+
+void Neuron::Reset() {
+  if (weights_.empty()) {
+    weight_i_ = -1;
+  } else {
+    weight_i_ = weights_.size();
   }
 }
 
