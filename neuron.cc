@@ -49,7 +49,7 @@ void Neuron::Reset() {
   if (weights_.empty()) {
     weight_i_ = -1;
   } else {
-    weight_i_ = weights_.size();
+    weight_i_ = weights_.size() - 1;
   }
 }
 

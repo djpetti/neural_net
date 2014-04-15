@@ -10,7 +10,7 @@
 namespace network {
 namespace testing {
 
-TEST(BasicTest, FullTest) {
+TEST(BasicTests, FullTest) {
   // Basically a one-pass test for everything.
   MFNetwork network (1, 1, 2);
   
@@ -36,7 +36,7 @@ TEST(BasicTest, FullTest) {
   printf("Got output: %f\n", values[0]);
 }
 
-TEST(BasicTest, XorTest) {
+TEST(BasicTests, XorTest) {
   // Create a basic xoring network and see if it performs as expected.
   MFNetwork network (2, 1, 3);
   network.AddHiddenLayer();
@@ -89,9 +89,10 @@ TEST(BasicTest, XorTest) {
   EXPECT_EQ(out[0], 0);
 }
 
-TEST(BasicTest, FileIOTest) {
+TEST(BasicTests, FileIOTest) {
   // Can we save and load networks to and from files?
-  MFNetwork network (1, 1, 1);
+  // TODO(daniel): Expand this.
+  MFNetwork network(1, 1, 1);
   network.AddHiddenLayer();
   
   size_t size = network.GetChromosomeSize();
@@ -105,6 +106,34 @@ TEST(BasicTest, FileIOTest) {
   for (uint32_t i = 0; i < size; ++i) {
     EXPECT_EQ(chromosome1[i], chromosome2[i]);
   }
+}
+
+TEST(BackPropagationTests, DecreasingErrorTest) {
+  // Does the error actually decrease when we run the back propagation
+  // algorithm?
+  MFNetwork network(1, 1, 5);
+  network.AddHiddenLayer();
+  network.AddHiddenLayer();
+  network.RandomWeights(-1, 1);
+  Sigmoid sigmoid;
+  network.SetOutputFunctions(&sigmoid);
+ 
+  double input = 0.01;
+  network.SetInputs(&input);
+  
+  double initial_output;
+  ASSERT_TRUE(network.GetOutputs(&initial_output));
+  double initial_error = fabs(0.5 - initial_output);
+  double target = 0.5;
+  for (int i = 0; i < 100; ++i) {
+    network.PropagateError(&target);
+  }
+  double final_output;
+  ASSERT_TRUE(network.GetOutputs(&final_output));
+  double final_error = fabs(0.5 - final_output);
+  printf("Initial error: %.10f\n", initial_error);
+  printf("Final error: %.10f\n", final_error);
+  EXPECT_LE(final_error, initial_error);
 }
 
 TEST(GenAlgTest, ChromosomeMethodsTest) {

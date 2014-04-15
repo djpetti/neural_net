@@ -74,11 +74,12 @@ class MFNetwork : public Network {
   inline void SetLearningRate(const double rate) {
     learning_rate_ = rate;
   }
-  // Propagates an error through the network, adjusting weights as it goes.
+  // Propagates an error through the network, adjusting weights as it goes. You
+  // give it a target value, and it calculates the error.
   // Although it can return false, the only time it should really do so is if
   // you're trying to propagate an error through a network which can't give you
   // a valid output in the first place.
-  bool PropagateError(const double error);
+  bool PropagateError(double *targets);
   // Constructs a network with the exact same architechture as this one. It
   // allocates it on the heap, and the caller MUST take ownership of it.
   // TODO(danielp): Get rid of this method, it's unnecessary and dumb.
@@ -104,6 +105,8 @@ class MFNetwork : public Network {
  private:
   // A struct to represent a layer.
   struct Layer_t {
+    // Whether the layer uses default output routing.
+    bool DefaultRouting = true;
     // Note that the MFNetwork destructor is responsible for freeing these
     // pointers.
     std::vector<Neuron *> Neurons;

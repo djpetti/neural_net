@@ -17,7 +17,7 @@ MFNetwork::MFNetwork(int inputs, int outputs, int layer_size) :
     num_inputs_(inputs),
     num_outputs_(outputs),
     layer_size_(layer_size),
-    learning_rate_(0.1),
+    learning_rate_(0.01),
     use_random_(false) {
   // Seed random number generator.
   srand(time(NULL));
@@ -55,20 +55,36 @@ void MFNetwork::DoLayerAdd(int neurons) {
     // Any other layer defaults to having each neuron send its outputs to every
     // neuron in the next layer.
     uint32_t size;
+    uint32_t dest_size;
     if (layers_.empty()) {
       // Input layer.
       size = num_inputs_;
+      dest_size = layer_size_;
     } else {
       // Hidden layer.
       size = layer_size_;
+      dest_size = num_outputs_;
     }
 
     for (uint32_t i = 0; i < size; ++i) {
-      std::vector<int> destinations;
-      for (uint32_t i1 = 0; i1 < layer_size_; ++i1) {
-        destinations.push_back(i1);
+      for (uint32_t i1 = 0; i1 < dest_size; ++i1) {
+        layer->RoutingMap[i].push_back(i1);
       }
-      layer->RoutingMap[i] = destinations;
+    }
+  }
+
+  if (layers_.size() > 2) {
+    // If we're using default routing, we need to modify the penultimate hidden
+    // layer so that it broadcasts to the right number of neurons for the next
+    // hidden layer instead of the output layer.
+    Layer_t *last_added = layers_[layers_.size() - 2];
+    if (last_added->DefaultRouting) {
+      last_added->RoutingMap.clear();
+      for (uint32_t i = 0; i < layer_size_; ++i) {
+        for (uint32_t i1 = 0; i1 < layer_size_; ++i1) {
+          last_added->RoutingMap[i].push_back(i1);
+        }
+      }
     }
   }
 
@@ -93,6 +109,12 @@ void MFNetwork::SetInputs(double *values) {
 }
   
 bool MFNetwork::DoGetOutputs(double *values, std::vector<double> *osubj) {
+  if (!HiddenLayerQuantity()) {
+    // Our network won't work without at least one hidden layer, and it will be
+    // pretty useless.
+    return false;
+  }
+
   bool save_outputs = true;
   if (osubj == nullptr) {
     // We're not doing back propagation.
@@ -142,8 +164,7 @@ bool MFNetwork::DoGetOutputs(double *values, std::vector<double> *osubj) {
     // Send our outputs to our inputs for the next layer, using the layer
     // routing map to keep track of which output goes where.
     for (auto& kv : layer_output_buffer) {
-      std::vector<int> destinations = layer->RoutingMap[kv.first];
-      for (int dest : destinations) {
+      for (int dest : layer->RoutingMap[kv.first]) {
         layer_input_buffer_[dest].push_back(kv.second);
       }
     }
@@ -159,7 +180,7 @@ bool MFNetwork::DoGetOutputs(double *values, std::vector<double> *osubj) {
     ASSERT(layer_input_buffer_[i].size() == 1,
         "Invalid routing for output layer.");
     values[i] = layer_input_buffer_[i][0];
-    if (save_internal) {
+    if (save_outputs) {
       // We don't want the last outputs in our vector of internal outputs.
       osubj->pop_back();
     }
@@ -231,6 +252,7 @@ bool MFNetwork::SetOutputRoute(uint32_t layer_i, uint32_t neuron_i,
   
   // Write to the proper layer's routing map.
   layer->RoutingMap[neuron_i] = output_nodes;
+  layer->DefaultRouting = false;
   return true;
 }
 
@@ -254,40 +276,63 @@ bool MFNetwork::PropagateError(double *targets) {
   double outputs [num_outputs_];
   std::vector<double> internal;
   DoGetOutputs(outputs, &internal);
-  double error [num_outputs_];
+  // Stores the errors from the last layer. We also use it to store the network
+  // outputs initially.
+  std::map<uint32_t, double> last_errors_input;
+  // Buffer for last_errors_input.
+  std::map<uint32_t, double> last_errors_output;
   for (uint32_t i = 0; i < num_outputs_; ++i) {
-    error[i] = targets[i] - outputs[i];
+    last_errors_input[i] = targets[i] - outputs[i];
   }
 
   // Iterate across our network backwards.
-  // Map our signals to neuron indices.
-  std::map<uint32_t, double> signals;
-  for (uint32_t layer_i = layers_.size() - 1; layer_i >= 0; --layer_i) {
+  for (int layer_i = layers_.size() - 1; layer_i >= 0; --layer_i) {
     Layer_t *layer = layers_[layer_i];
-    for (uint32_t neuron_i = layer->Neurons.size() - 1; 
+    for (int neuron_i = layer->Neurons.size() - 1; 
         neuron_i >= 0; --neuron_i) {
       Neuron *neuron = layer->Neurons[neuron_i];
       ImpulseFunction *impulse = neuron->GetOutputFunction();
       
       if (impulse != nullptr) {
-        if (layer_i == layers_.size() - 1) {
+        double error = 0;
+        if (static_cast<uint32_t>(layer_i) == layers_.size() - 1) {
           // Output layer.
-          double signal = impulse->Derivative(error[neuron_i]) * error[neuron_i];
-          signals[neuron_i] = signal;
-          neuron->AdjustWeights(learning_rate_, signal);
-        } else {
+          error = last_errors_input[neuron_i];
+        } else if (layer_i != 0) {
           // Hidden layer.
           // Based on how we assign outputs to weights, we can work backwards to
           // find which weight one the downstream neuron governs the output of
           // this one.
-          double error = 0;
-          for (int )
+          Layer_t *lower_layer = layers_[layer_i + 1];
+          for (int dest : layer->RoutingMap[neuron_i]) {
+            Neuron *lower_neuron = lower_layer->Neurons[dest];
+            double weight;
+            ASSERT(lower_neuron->GetLastWeight(&weight),
+                "Neuron has the wrong number of weights.");
+            error += weight * last_errors_input[dest];
+          }
+       }
+
+        // Do this as long as it's not the input layer.
+        if (layer_i != 0) {
+          last_errors_output[neuron_i] = error;
+          double internal_out = internal.back();
+          internal.pop_back();
+          double signal = impulse->Derivative(internal_out) * error;
+          ASSERT(neuron->AdjustWeights(learning_rate_, signal),
+              "Failed to update neuron weights.");
         }
       } else {
         return false;
       }
     }
+    
+    // Swap the last errors buffers for a new cycle.
+    last_errors_input.swap(last_errors_output);
+    last_errors_output.clear();
   }
+
+  return true;
 }
 
 bool MFNetwork::Clone(MFNetwork *dest) {
