@@ -91,19 +91,21 @@ TEST(BasicTests, XorTest) {
 
 TEST(BasicTests, FileIOTest) {
   // Can we save and load networks to and from files?
-  // TODO(daniel): Expand this.
   MFNetwork network(1, 1, 1);
   network.AddHiddenLayer();
   
-  size_t size = network.GetChromosomeSize();
-  uint64_t chromosome1 [size];
-  uint64_t chromosome2 [size];
+  size_t chromo_size = network.GetChromosomeSize();
+  uint64_t chromosome1 [chromo_size];
+  uint64_t chromosome2 [chromo_size];
   network.GetChromosome(chromosome1);
-  EXPECT_TRUE(MFNetwork::SaveToFile("test.bin", &network));
-  EXPECT_TRUE(MFNetwork::ReadFromFile("test.bin", &network));
-  network.GetChromosome(chromosome2);
+  EXPECT_TRUE(network.SaveToFile("test.bin"));
+
+  MFNetwork network2(2, 2, 2);
+  EXPECT_TRUE(network2.ReadFromFile("test.bin"));
+  network2.GetChromosome(chromosome2);
   
-  for (uint32_t i = 0; i < size; ++i) {
+  EXPECT_EQ(network.HiddenLayerQuantity(), network2.HiddenLayerQuantity());
+  for (uint32_t i = 0; i < chromo_size; ++i) {
     EXPECT_EQ(chromosome1[i], chromosome2[i]);
   }
 }

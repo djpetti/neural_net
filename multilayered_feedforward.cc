@@ -386,59 +386,124 @@ bool MFNetwork::SetChromosome(uint64_t *chromosome) {
   return true;
 }
 
-bool MFNetwork::SaveToFile(const char *path, MFNetwork *network) {
+void MFNetwork::SerializeRoutes(uint32_t *routes) {
+  int index = 0;
+  for (Layer_t *layer : layers_) {
+    routes[index++] = layer->RoutingMap.size();
+    routes[index++] = layer->DefaultRouting;
+    for (auto& kv : layer->RoutingMap) {
+      routes[index++] = kv.first;
+      routes[index++] = kv.second.size();
+      for (int neuron_i : kv.second) {
+        routes[index++] = neuron_i;
+      }
+    }
+  }
+}
+
+size_t MFNetwork::GetNumRoutes() {
+  size_t total = 0;
+  for (Layer_t *layer : layers_) {
+    // For the size of the routing map and the value of UserRouting.
+    total += 2;
+    for (auto& kv : layer->RoutingMap) {
+      // For first value and size of vector.
+      total += 2;
+      // For vector contents.
+      total += kv.second.size();
+    }
+  }
+  return total;
+}
+
+void MFNetwork::DeserializeRoutes(uint32_t *routes) {
+  int index = 0;
+  for (Layer_t *layer : layers_) {
+    int map_size = routes[index++];
+    layer->DefaultRouting = routes[index++];
+    for (int i = 0; i < map_size; ++i) {
+      int source_neuron_i = index++;
+      int dest_size = routes[index++];
+      std::vector<int> destinations;
+      for (int i1 = 0; i1 < dest_size; ++i1) {
+        destinations.push_back(routes[index++]);
+      }
+      layer->RoutingMap[source_neuron_i] = destinations;
+    }
+  }
+}
+
+bool MFNetwork::SaveToFile(const char *path) {
   FILE *out_file = fopen(path, "w");
   if (!out_file) {
     return false;
   }
 
-  fwrite(network, sizeof(*network), 1, out_file);
+  // Save basic network information to the file.
+  uint32_t basic_info [4] = {
+      num_inputs_,
+      num_outputs_,
+      layer_size_,
+      static_cast<uint32_t>(layers_.size())};
+  fwrite(basic_info, sizeof(basic_info[0]), 4, out_file);
+  
+  // Save our routing information from the layers structures.
+  uint32_t num_routes = GetNumRoutes();
+  fwrite(&num_routes, sizeof(num_routes), 1, out_file);
+  uint32_t routes [num_routes];
+  SerializeRoutes(routes);
+  fwrite(routes, sizeof(int), num_routes, out_file);
+  
   // Save the size of our chromosome and our actual chromosome so we can recover
   // our weights later.
-  uint32_t size = network->GetChromosomeSize();
+  uint32_t size = GetChromosomeSize();
   fwrite(&size, sizeof(size), 1, out_file);
   uint64_t chromosome [size];
-  network->GetChromosome(chromosome);
+  GetChromosome(chromosome);
   fwrite(chromosome, sizeof(chromosome[0]), size, out_file);
+  
   fclose(out_file);
 
   return true;
 }
 
-bool MFNetwork::ReadFromFile(const char *path, MFNetwork *network) {
+bool MFNetwork::ReadFromFile(const char *path) {
   FILE *in_file = fopen(path, "r");
   if (!in_file) {
     return false;
   }
 
-  fread(network, sizeof(*network), 1, in_file);
+  uint32_t basic_info [4];
+  fread(basic_info, sizeof(basic_info[0]), 4, in_file);
+  num_inputs_ = basic_info[0];
+  num_outputs_ = basic_info[1];
+  layer_size_ = basic_info[2];
+  uint32_t num_layers = basic_info[3];
+
+  // Our ctor already added two layers, but possibly without knowing the correct
+  // size parameters. Therefore, we'll redo them.
+  layers_.clear();
+  DoLayerAdd(num_inputs_);
+  DoLayerAdd(num_outputs_);
+  for (uint32_t i = 2; i < num_layers; ++i) {
+    DoLayerAdd(layer_size_);
+  }
+  
+  uint32_t num_routes;
+  fread(&num_routes, sizeof(num_routes), 1, in_file);
+  uint32_t routes [num_routes];
+  fread(routes, sizeof(routes[0]), num_routes, in_file);
+  
   uint32_t size;
   fread(&size, sizeof(size), 1, in_file);
   uint64_t chromosome [size];
   fread(chromosome, sizeof(chromosome[0]), size, in_file);
+  
   fclose(in_file);
 
-  // Create new neurons and layers for our network, as the old pointers are
-  // invalid.
-  for (uint32_t i = 0; i < network->layers_.size(); ++i) {
-    size_t layer_size;
-    if (i == 0) {
-      // Input layer.
-      layer_size = network->num_inputs_;
-    } else if (i == network->layers_.size() - 1) {
-      // Output layer.
-      layer_size = network->num_outputs_;
-    } else {
-      // Hidden layer.
-      layer_size = network->layer_size_;
-    }
-    network->layers_[i] = new Layer_t;
-    for (uint32_t i1 = 0; i1 < layer_size; ++i1) {
-      network->layers_[i]->Neurons.push_back(new Neuron);
-    }
-  }
-  // Set our neuron weights.
-  network->SetChromosome(chromosome);
+  // Set our neuron weights and layer routings.
+  SetChromosome(chromosome);
+  DeserializeRoutes(routes);
 
   return true;
 }

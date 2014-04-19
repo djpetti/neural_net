@@ -98,9 +98,9 @@ class MFNetwork : public Network {
   virtual bool SetChromosome(uint64_t *chromosome);
   // Saves a network to a file for future use. Returns true if it writes
   // successfully, false if it doesn't.
-  static bool SaveToFile(const char *path, MFNetwork *network);
+  bool SaveToFile(const char *path);
   // Reads a network previously saved to a file into memory.
-  static bool ReadFromFile(const char *path, MFNetwork *dest);
+  bool ReadFromFile(const char *path);
 
  private:
   // A struct to represent a layer.
@@ -120,6 +120,15 @@ class MFNetwork : public Network {
   // Helper for getting the output, that can be customized depending on what
   // type of learning the network is doing.
   bool DoGetOutputs(double *values, std::vector<double> *osubj);
+  // Writes an array representation of all the routes in the network, which can
+  // then be written to a file more easily.
+  void SerializeRoutes(uint32_t *routes);
+  // The number of routes that the above function has to write. The array
+  // <routes> must be at least this size.
+  size_t GetNumRoutes();
+  // Takes an array representation of the routes in a network and rebuilds the
+  // routing maps.
+  void DeserializeRoutes(uint32_t *routes);
 
   uint32_t num_inputs_;
   uint32_t num_outputs_;
