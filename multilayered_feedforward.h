@@ -47,12 +47,15 @@ class MFNetwork : public Network {
   // The following function sets all the neuron's weights to random values. Upper
   // and lower are the inclusive bounds of these values.
   inline void RandomWeights(int lower, int upper) {
-    use_random_ = true;
+    use_special_weights_ = 1;
     upper_ = upper;
     lower_ = lower;
   }
-  // Sets all the weights in the network to <values>.
-  void SetWeights(const std::vector<double>& values);
+  // Sets all the weights in the network to <value>.
+  void SetWeights(double value) {
+    use_special_weights_ = 2;
+    user_weight_ = value;
+  }
   // Sets the weights on all the inputs going into <layer_i> to <values>.
   bool SetLayerWeights(uint32_t layer_i, const std::vector<double>& values);
   // Sets the same impulse function for all the neurons.
@@ -61,6 +64,11 @@ class MFNetwork : public Network {
   // the index of said layer.
   bool SetLayerOutputFunctions(uint32_t layer_i, 
       ImpulseFunction *impulse);
+  // Sets the bias weight for all the neurons in the network.
+  void SetBiases(double bias);
+  // Sets the bias weight for all the neurons in a layer. Returns false to
+  // indicate a bad layer index.
+  bool SetLayerBiases(uint32_t layer_i, double bias);
   // Specifies that a neuron in a layer ouputs to a specific group of neurons in
   // the next layer. All neurons and layers are referred to by index. Returns
   // true for success, false if any of the indices given are invalid.
@@ -87,6 +95,8 @@ class MFNetwork : public Network {
   // Copies a specific neuron routing layout from one hidden layer to another
   // one. Returns true for success, false if the indices are invalid.
   //bool CopyOutputRoute(int source_layer_i, int dest_layer_i);
+  // Returns the total number of neurons in the network.
+  virtual uint32_t GetNeuronQuantity();
   // This one is for genetic algorithms. It returns the total number of weights.
   virtual size_t GetChromosomeSize();
   // Returns an array of the weights of the neurons. chromosome must have enough space
@@ -99,7 +109,10 @@ class MFNetwork : public Network {
   // Saves a network to a file for future use. Returns true if it writes
   // successfully, false if it doesn't.
   bool SaveToFile(const char *path);
-  // Reads a network previously saved to a file into memory.
+  // Reads a network previously saved to a file into memory. Note that the
+  // neuron impulse functions are NOT saved to and read from the file, they must
+  // be set manually. (Writing ImpulseFunction-derived classes to and from files
+  // results in undefined behavior.)
   bool ReadFromFile(const char *path);
 
  private:
@@ -133,13 +146,17 @@ class MFNetwork : public Network {
   uint32_t num_inputs_;
   uint32_t num_outputs_;
   uint32_t layer_size_;
+  // Used to indicate whether random weights or a user specified weight is
+  // requested. Set to 1 for random weights, 2 for user-specified weigths, and 0
+  // for neither.
+  uint32_t use_special_weights_;
   // Upper and lower bounds for random weights.
-  int upper_;
-  int lower_;
+  int32_t upper_;
+  int32_t lower_;
+  // The value of the user-specified weight.
+  double user_weight_;
   // Back-propagation learning rate.
   double learning_rate_;
-  // Whether random weights were requested.
-  bool use_random_;
   // A vector of all our hidden layers. The MFNetwork destructor is also
   // responsible for freeing these.
   std::vector<Layer_t *> layers_;

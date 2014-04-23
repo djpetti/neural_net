@@ -17,8 +17,8 @@ MFNetwork::MFNetwork(int inputs, int outputs, int layer_size) :
     num_inputs_(inputs),
     num_outputs_(outputs),
     layer_size_(layer_size),
-    learning_rate_(0.01),
-    use_random_(false) {
+    use_special_weights_(0),
+    learning_rate_(0.01) {
   // Seed random number generator.
   srand(time(NULL));
   // Create the input and output layers.
@@ -131,8 +131,8 @@ bool MFNetwork::DoGetOutputs(double *values, std::vector<double> *osubj) {
       // Set the inputs that we're using for this neuron.
       neuron->SetInputs(layer_input_buffer_[neuron_i]);
       
-      if (use_random_) {
-        // We might need new random weights for our neuron if the number of
+      if (use_special_weights_) {
+        // We might need new weights for our neuron if the number of
         // inputs has changed.
         std::vector<double> weights;
         neuron->GetWeights(&weights);
@@ -142,8 +142,15 @@ bool MFNetwork::DoGetOutputs(double *values, std::vector<double> *osubj) {
           weights.pop_back();
         }
         while (weights.size() < layer_input_buffer_[neuron_i].size()) {
-          int range = upper_ - lower_;
-          int num = rand() % range + lower_;
+          double num;
+          if (use_special_weights_ == 1) {
+            // Random weights.
+            int range = upper_ - lower_;
+            num = rand() % range + lower_;
+          } else {
+            // User-specified weights.
+            num = user_weight_;
+          }
           weights.push_back(num);
         }
         neuron->SetWeights(weights);
@@ -202,13 +209,6 @@ Neuron *MFNetwork::GetNeuron(uint32_t layer_i, uint32_t neuron_i) {
   return layer->Neurons[neuron_i];
 }
 
-void MFNetwork::SetWeights(const std::vector<double>& values) {
-  for (uint32_t i = 0; i < layers_.size(); ++i) {
-    ASSERT(SetLayerWeights(i, values), 
-        "SetLayerWeights failing for a weird reason.");
-  }
-}
-
 bool MFNetwork::SetLayerWeights(uint32_t layer_i, const std::vector<double>& values) {
   if (layer_i >= layers_.size()) {
     return false;
@@ -237,6 +237,26 @@ bool MFNetwork::SetLayerOutputFunctions(uint32_t layer_i,
   for (Neuron *neuron : layer->Neurons) {
     neuron->SetOutputFunction(impulse);
   }
+  return true;
+}
+
+void MFNetwork::SetBiases(double bias) {
+  for (uint32_t i = 0; i < layers_.size(); ++i) {
+    ASSERT(SetLayerBiases(i, bias),
+        "SetLayerBiases failing for some weird reason.");
+  }
+}
+
+bool MFNetwork::SetLayerBiases(uint32_t layer_i, double bias) {
+  if (layer_i >= layers_.size()) {
+    return false;
+  }
+
+  Layer_t *layer = layers_[layer_i];
+  for (Neuron *neuron : layer->Neurons) {
+    neuron->SetBias(bias);
+  }
+
   return true;
 }
 
@@ -343,11 +363,21 @@ bool MFNetwork::Clone(MFNetwork *dest) {
   return true;
 }
 
+uint32_t MFNetwork::GetNeuronQuantity() {
+  uint32_t total = 0;
+  for (Layer_t *layer : layers_) {
+    total += layer->Neurons.size();
+  }
+  return total;
+}
+
 size_t MFNetwork::GetChromosomeSize() {
   int num_weights = 0;
   for (Layer_t *layer : layers_) {
     for (Neuron *neuron : layer->Neurons) {
-      num_weights += neuron->GetNumWeights(); 
+      num_weights += neuron->GetNumWeights();
+      // Bias weight.
+      ++num_weights;
     }
   }
 
@@ -361,8 +391,12 @@ bool MFNetwork::GetChromosome(uint64_t *chromosome) {
     for (Neuron *neuron : layer->Neurons) {
       neuron->GetWeights(&neuron_weights);
       for (double weight : neuron_weights) {
-        memcpy(&chromosome[weights_i++], &weight, sizeof(double));
+        // The fancy memcpy-ing is due to the type mismatch.
+        memcpy(&chromosome[weights_i++], &weight, sizeof(weight));
       }
+      // Bias weight.
+      double bias = neuron->GetBias();
+      memcpy(&chromosome[weights_i++], &bias, sizeof(bias));
     }
   }
   return true;
@@ -377,10 +411,14 @@ bool MFNetwork::SetChromosome(uint64_t *chromosome) {
       std::vector<double> weights_v;
       for (; weights_i <= max_index; ++weights_i) {
         double weight;
-        memcpy(&weight, &chromosome[weights_i], sizeof(uint64_t));
+        memcpy(&weight, &chromosome[weights_i], sizeof(weight));
         weights_v.push_back(weight);
       }
       neuron->SetWeights(weights_v);
+      // Bias weight.
+      double bias;
+      memcpy(&bias, &chromosome[weights_i++], sizeof(bias));
+      neuron->SetBias(bias);
     }
   }
   return true;
@@ -440,12 +478,18 @@ bool MFNetwork::SaveToFile(const char *path) {
   }
 
   // Save basic network information to the file.
-  uint32_t basic_info [4] = {
-      num_inputs_,
-      num_outputs_,
-      layer_size_,
-      static_cast<uint32_t>(layers_.size())};
-  fwrite(basic_info, sizeof(basic_info[0]), 4, out_file);
+  int32_t basic_info [] = {
+      static_cast<int32_t>(num_inputs_),
+      static_cast<int32_t>(num_outputs_),
+      static_cast<int32_t>(layer_size_),
+      static_cast<int32_t>(use_special_weights_),
+      upper_,
+      lower_,
+      static_cast<int32_t>(layers_.size())};
+  double weight_info [] = {
+      user_weight_};
+  fwrite(basic_info, sizeof(basic_info[0]), 7, out_file);
+  fwrite(weight_info, sizeof(weight_info[0]), 1, out_file);
   
   // Save our routing information from the layers structures.
   uint32_t num_routes = GetNumRoutes();
@@ -461,7 +505,7 @@ bool MFNetwork::SaveToFile(const char *path) {
   uint64_t chromosome [size];
   GetChromosome(chromosome);
   fwrite(chromosome, sizeof(chromosome[0]), size, out_file);
-  
+
   fclose(out_file);
 
   return true;
@@ -473,12 +517,18 @@ bool MFNetwork::ReadFromFile(const char *path) {
     return false;
   }
 
-  uint32_t basic_info [4];
-  fread(basic_info, sizeof(basic_info[0]), 4, in_file);
+  int32_t basic_info [7];
+  double weight_info [1];
+  fread(basic_info, sizeof(basic_info[0]), 7, in_file);
+  fread(weight_info, sizeof(weight_info[0]), 1, in_file);
   num_inputs_ = basic_info[0];
   num_outputs_ = basic_info[1];
   layer_size_ = basic_info[2];
-  uint32_t num_layers = basic_info[3];
+  use_special_weights_ = basic_info[3];
+  upper_ = basic_info[4];
+  lower_ = basic_info[5];
+  uint32_t num_layers = basic_info[6];
+  user_weight_ = weight_info[0];
 
   // Our ctor already added two layers, but possibly without knowing the correct
   // size parameters. Therefore, we'll redo them.
@@ -498,7 +548,7 @@ bool MFNetwork::ReadFromFile(const char *path) {
   fread(&size, sizeof(size), 1, in_file);
   uint64_t chromosome [size];
   fread(chromosome, sizeof(chromosome[0]), size, in_file);
-  
+
   fclose(in_file);
 
   // Set our neuron weights and layer routings.

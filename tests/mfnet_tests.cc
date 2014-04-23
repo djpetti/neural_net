@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "gtest/gtest.h"
 #include "../multilayered_feedforward.h"
@@ -142,14 +143,21 @@ TEST(GenAlgTest, ChromosomeMethodsTest) {
   // Test whether we can get and set chromosomes correctly.
   MFNetwork network (1, 1, 2);
   network.AddHiddenLayer();
+  network.SetWeights(1);
+  network.SetBiases(1);
 
   int size = network.GetChromosomeSize();
   uint64_t chromosome [size];
   ASSERT_TRUE(network.GetChromosome(chromosome));
+
+  // This is what evetrything in our chromosome should be equal to.
+  double double_one = 1;
+  uint64_t chromo_value;
+  memcpy(&chromo_value, &double_one, sizeof(chromo_value));
  
   for (int i = 0; i < size; ++i) {
     // The default weight is 1, so that's what it should be.
-    EXPECT_EQ(1, chromosome[i]);
+    EXPECT_EQ(chromo_value, chromosome[i]);
   }
 
   // Write a changed chromosome.
@@ -159,7 +167,7 @@ TEST(GenAlgTest, ChromosomeMethodsTest) {
   ASSERT_TRUE(network.GetChromosome(chromosome));
   EXPECT_EQ(2, chromosome[0]);
   for (int i = 1; i < size; ++i) {
-    EXPECT_EQ(1, chromosome[i]);
+    EXPECT_EQ(chromo_value, chromosome[i]);
   }
 }
 

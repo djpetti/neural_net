@@ -26,6 +26,10 @@ public:
   inline void SetBias(double bias) {
     bias_ = bias;
   }
+  // Returns the neuron's bias weight.
+  inline double GetBias() {
+    return bias_;
+  }
   // Sets the neuron's inputs to the contents of a vector.
   inline void SetInputs(const std::vector<double>& values) {
     inputs_ = values;

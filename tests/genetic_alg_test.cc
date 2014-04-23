@@ -77,7 +77,6 @@ class HundredGA : public GeneticAlgorithm {
     }
     int error = abs(100 - floor(outputs[0]));
     int fitness = 100 - error;
-    printf("Fitness: %d\n", fitness);
     return std::max(fitness, 0);
   }
 };
@@ -152,10 +151,10 @@ TEST(GATest, RecombinationTest) {
   double all_zeros;
   memcpy(&all_ones, &all_ones_i, sizeof(uint64_t));
   memcpy(&all_zeros, &all_ones_i, sizeof(uint64_t));
-  std::vector<double> weights {all_ones};
-  std::vector<double> weights2 {all_zeros};
-  network.SetWeights(weights);
-  network2.SetWeights(weights2);
+  network.SetWeights(all_ones);
+  network2.SetWeights(all_zeros);
+  network.SetBiases(all_ones);
+  network2.SetBiases(all_zeros);
   network::Threshold threshold0(0);
   network.SetOutputFunctions(&threshold0);
   network2.SetOutputFunctions(&threshold0);
@@ -176,7 +175,7 @@ TEST(GATest, RecombinationTest) {
   uint64_t chromosome [size];
   uint64_t chromosome2 [size];
   network.GetChromosome(chromosome);
-  network.GetChromosome(chromosome2);
+  network2.GetChromosome(chromosome2);
   for (uint32_t chromo_i = 0; chromo_i < size; ++chromo_i) {
     for (uint32_t gene_i = 0; gene_i < sizeof(uint64_t) * 8; ++gene_i) {
       current = chromosome[chromo_i] & (1 << gene_i);
