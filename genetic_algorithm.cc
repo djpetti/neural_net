@@ -1,6 +1,3 @@
-#define __STDC_FORMAT_MACROS
-#include <inttypes.h> // temp
-#include <stdio.h> // temp
 #include <stdlib.h>
 #include <time.h>
 
@@ -123,9 +120,7 @@ Network *GeneticAlgorithm::PickRoulette() {
       }
     }
   } else {
-    printf("Total fitness: %d\n", total_fitness_);
     pick = rand() % total_fitness_;
-    printf("Pick: %d\n", pick);
   }
   int traversed = 0;
   for (auto& kv : networks_) {
@@ -140,7 +135,6 @@ Network *GeneticAlgorithm::PickRoulette() {
 void GeneticAlgorithm::Mate(Network *mother,
     Network *father, uint64_t *out_chromo) {
   // Extract individual chromosomes.
-  printf("chromosome_size_: %d\n", chromosome_size_);
   uint64_t chromosome1 [chromosome_size_];
   uint64_t chromosome2 [chromosome_size_];
   const int type_len = sizeof(uint64_t) * 8;
@@ -152,22 +146,18 @@ void GeneticAlgorithm::Mate(Network *mother,
 
   // Handle recombination.
   int should_recombine = rand() % 100;
-  printf("should_recombine: %d\n", should_recombine);
   int bitlen = chromosome_size_ * type_len;
-  printf("bitlen: %d\n", bitlen);
   if (should_recombine < crossover_rate_ * 100) {
     // We need to recombine.
     // Pick a recombination threshold.
     int recombine_after = rand() % bitlen;
     bool first_word = true;
-    printf("Got to start of recombination loop without crashing!\n");
     for (int i = recombine_after / type_len; 
         i < chromosome_size_;
         ++i) {
       if (first_word) {
         // Our first word might be a partial one.
         first_word = false;
-        printf("Got to first word without crashing!\n");
         for (int bit = recombine_after % type_len; 
             bit < type_len; ++bit) {
           if (chromosome2[i] & (shifter << bit)) {
