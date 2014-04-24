@@ -78,9 +78,13 @@ class MFNetwork : public Network {
   // this network set to 1.
   bool CopyLayout(const MFNetwork& source);
   // Allows the user to specify the learning rate coefficient for the
-  // back-propagation algorithm. (The default is 0.1.)
+  // back-propagation algorithm. (The default is 0.01.)
   inline void SetLearningRate(const double rate) {
     learning_rate_ = rate;
+  }
+  // Allows user to specify momentum. (default is 0.5.)
+  inline void SetMomentum(const double momentum) {
+    momentum_ = momentum;
   }
   // Propagates an error through the network, adjusting weights as it goes. You
   // give it a target value, and it calculates the error.
@@ -157,6 +161,8 @@ class MFNetwork : public Network {
   double user_weight_;
   // Back-propagation learning rate.
   double learning_rate_;
+  // The momentum for backpropagation.
+  double momentum_;
   // A vector of all our hidden layers. The MFNetwork destructor is also
   // responsible for freeing these.
   std::vector<Layer_t *> layers_;

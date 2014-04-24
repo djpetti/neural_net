@@ -9,12 +9,28 @@ Neuron::Neuron() :
     bias_(0),
     weight_i_(-1) {}
 
-bool Neuron::AdjustWeights(double learning_rate, double signal) {
+void Neuron::SetWeights(const std::vector<double>& values) {
+  weights_ = values;
+
+  // delta_weights are now invalid, so reset them to zero.
+  delta_weights_.clear();
+  for (uint32_t i = 0; i < weights_.size(); ++i) {
+    delta_weights_.push_back(0);
+  }
+
+  Reset();
+}
+
+bool Neuron::AdjustWeights(double learning_rate, double momentum, double signal) {
+  std::vector<double> weights_buffer;
   if (weights_.size() == inputs_.size()) {
     for (uint32_t i = 0; i < weights_.size(); ++i) {
       double delta = learning_rate * signal * inputs_[i];
+      delta += delta_weights_[i] * momentum;
       weights_[i] += delta;
+      weights_buffer.push_back(delta);
     }
+    delta_weights_.swap(weights_buffer);
     return true;
   }
 

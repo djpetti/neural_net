@@ -18,7 +18,8 @@ MFNetwork::MFNetwork(int inputs, int outputs, int layer_size) :
     num_outputs_(outputs),
     layer_size_(layer_size),
     use_special_weights_(0),
-    learning_rate_(0.01) {
+    learning_rate_(0.01),
+    momentum_(0.5) {
   // Seed random number generator.
   srand(time(NULL));
   // Create the input and output layers.
@@ -339,7 +340,7 @@ bool MFNetwork::PropagateError(double *targets) {
           double internal_out = internal.back();
           internal.pop_back();
           double signal = impulse->Derivative(internal_out) * error;
-          ASSERT(neuron->AdjustWeights(learning_rate_, signal),
+          ASSERT(neuron->AdjustWeights(learning_rate_, momentum_, signal),
               "Failed to update neuron weights.");
         }
       } else {

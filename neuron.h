@@ -35,12 +35,9 @@ public:
     inputs_ = values;
   }
   // Sets the neuron's input's weights to the contents of a vector.
-  inline void SetWeights(const std::vector<double>& values) {
-    weights_ = values;
-    Reset();
-  }
+  void SetWeights(const std::vector<double>& values);
   // Changes the weights according to a back propagated signal.
-  bool AdjustWeights(double learning_rate, double signal);
+  bool AdjustWeights(double learning_rate, double momentum, double signal);
   // Gets the neuron's current weights.
   inline void GetWeights(std::vector<double> *weights) {
     *weights = weights_;
@@ -73,6 +70,8 @@ private:
   std::vector<double> inputs_;
   // The value of the weight on each input.
   std::vector<double> weights_;
+  // The last change to each of our weights.
+  std::vector<double> delta_weights_;
 };
 
 } //network
