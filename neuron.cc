@@ -24,6 +24,9 @@ void Neuron::SetWeights(const std::vector<double>& values) {
 bool Neuron::AdjustWeights(double learning_rate, double momentum, double signal) {
   std::vector<double> weights_buffer;
   if (weights_.size() == inputs_.size()) {
+    // Adjust bias, which is basically a weight with the input permanently set
+    // at 1.
+    SetBias(bias_ + learning_rate * signal);
     for (uint32_t i = 0; i < weights_.size(); ++i) {
       double delta = learning_rate * signal * inputs_[i];
       delta += delta_weights_[i] * momentum;
