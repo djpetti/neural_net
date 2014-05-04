@@ -13,7 +13,7 @@ namespace network {
 static_assert(sizeof(double) == sizeof(uint64_t),
             "Otherwise weird things happen.");
 
-MFNetwork::MFNetwork(int inputs, int outputs, int layer_size) :
+MFNetwork::MFNetwork(uint32_t inputs, uint32_t outputs, uint32_t layer_size) :
     num_inputs_(inputs),
     num_outputs_(outputs),
     layer_size_(layer_size),
@@ -28,7 +28,6 @@ MFNetwork::MFNetwork(int inputs, int outputs, int layer_size) :
 }
 
 MFNetwork::~MFNetwork() {
-  // Free all our heap stuff.
   for (Layer_t *layer : layers_) {
     for (Neuron *neuron : layer->Neurons) {
       delete neuron;
@@ -293,10 +292,18 @@ bool MFNetwork::CopyLayout(const MFNetwork& source) {
   return true;
 }
 
-bool MFNetwork::PropagateError(double *targets) {
+bool MFNetwork::PropagateError(double *targets, double *final_outputs/* =
+    nullptr*/, std::vector<double> *internal_outputs/* = nullptr*/) {  
   double outputs [num_outputs_];
   std::vector<double> internal;
-  DoGetOutputs(outputs, &internal);
+  if (final_outputs == nullptr || internal_outputs == nullptr) {
+    DoGetOutputs(outputs, &internal);
+  } else {
+    // We can skip calculating outputs.
+    memcpy(outputs, final_outputs, sizeof(outputs[0]) * num_outputs_);
+    internal = *internal_outputs;
+  }
+
   // Stores the errors from the last layer. We also use it to store the network
   // outputs initially.
   std::map<uint32_t, double> last_errors_input;

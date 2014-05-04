@@ -14,13 +14,20 @@
 // Contains the necessary code for representing a multilayed-feedforward neural
 // network.
 
+// Forward declaration for friending.
+namespace algorithm {
+  class SupervisedLearner;
+}
+
 namespace network {
 
 class MFNetwork : public Network {
+  friend class algorithm::SupervisedLearner;
+ 
  public:
   // inputs is the number of input neurons, outputs is the number of output
   // neurons, and layer_size is the number of neurons in each hidden layer.
-  MFNetwork(int inputs, int outputs, int layer_size);
+  MFNetwork(uint32_t inputs, uint32_t outputs, uint32_t layer_size);
   virtual ~MFNetwork();
   // Adds a new hidden layer.
   inline void AddHiddenLayer() {
@@ -90,8 +97,11 @@ class MFNetwork : public Network {
   // give it a target value, and it calculates the error.
   // Although it can return false, the only time it should really do so is if
   // you're trying to propagate an error through a network which can't give you
-  // a valid output in the first place.
-  bool PropagateError(double *targets);
+  // a valid output in the first place. <final_outputs> and <internal_ouputs>
+  // allow the user to provide output information to the function, saving the
+  // extra time to calculate it.
+  bool PropagateError(double *targets, double *final_outputs = nullptr,
+      std::vector<double> *internal_outputs = nullptr);
   // Constructs a network with the exact same architechture as this one. It
   // allocates it on the heap, and the caller MUST take ownership of it.
   // TODO(danielp): Get rid of this method, it's unnecessary and dumb.

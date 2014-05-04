@@ -33,5 +33,16 @@
         'genetic_alg_test.cc',
       ],
     },
+    {
+      'target_name': 'learner_test',
+      'type': 'executable',
+      'dependencies': [
+        '../externals/externals.gyp:gtest',
+        '../neural_net.gyp:libneuralnet',
+      ],
+      'sources': [
+        'learner_tests.cc',
+      ],
+    },
   ],
 }

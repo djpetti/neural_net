@@ -20,6 +20,7 @@
         'multilayered_feedforward.cc',
         'neuron.cc',
         'output_functions.cc',
+        'supervised_learner.cc',
       ],
     },
   ],
