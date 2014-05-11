@@ -125,7 +125,8 @@ bool MFNetwork::DoGetOutputs(double *values, std::vector<double> *osubj) {
   std::map<int, double> layer_output_buffer;
 
   // Calculate each layer in sequence.
-  for (Layer_t *layer : layers_) {
+  for (uint32_t layer_i = 0; layer_i < layers_.size(); ++layer_i) {
+    Layer_t *layer = layers_[layer_i];
     for (uint32_t neuron_i = 0; neuron_i < layer->Neurons.size(); ++neuron_i) {
       Neuron *neuron = layer->Neurons[neuron_i];
       // Set the inputs that we're using for this neuron.
@@ -145,8 +146,13 @@ bool MFNetwork::DoGetOutputs(double *values, std::vector<double> *osubj) {
           double num;
           if (use_special_weights_ == 1) {
             // Random weights.
-            int range = upper_ - lower_;
-            num = rand() % range + lower_;
+            if (layer_i) {
+              int range = upper_ - lower_;
+              num = rand() % range + lower_;
+            } else {
+              // For an input layer, we just want them to be 1.
+              num = 1;
+            }
           } else {
             // User-specified weights.
             num = user_weight_;
@@ -187,10 +193,10 @@ bool MFNetwork::DoGetOutputs(double *values, std::vector<double> *osubj) {
     ASSERT(layer_input_buffer_[i].size() == 1,
         "Invalid routing for output layer.");
     values[i] = layer_input_buffer_[i][0];
-    if (save_outputs) {
-      // We don't want the last outputs in our vector of internal outputs.
-      osubj->pop_back();
-    }
+    //if (save_outputs) {
+    //  // We don't want the last outputs in our vector of internal outputs.
+    //  osubj->pop_back();
+    //}
   }
 
   return true;
@@ -305,7 +311,7 @@ bool MFNetwork::PropagateError(double *targets, double *final_outputs/* =
   }
 
   // Stores the errors from the last layer. We also use it to store the network
-  // outputs initially.
+  // errors initially.
   std::map<uint32_t, double> last_errors_input;
   // Buffer for last_errors_input.
   std::map<uint32_t, double> last_errors_output;
@@ -323,32 +329,40 @@ bool MFNetwork::PropagateError(double *targets, double *final_outputs/* =
       
       if (impulse != nullptr) {
         double error = 0;
+        bool is_output = false;
         if (static_cast<uint32_t>(layer_i) == layers_.size() - 1) {
           // Output layer.
+          is_output = true;
           error = last_errors_input[neuron_i];
         } else if (layer_i != 0) {
           // Hidden layer.
           // Based on how we assign outputs to weights, we can work backwards to
-          // find which weight one the downstream neuron governs the output of
+          // find which weight on the downstream neuron governs the output of
           // this one.
           Layer_t *lower_layer = layers_[layer_i + 1];
           for (int dest : layer->RoutingMap[neuron_i]) {
             Neuron *lower_neuron = lower_layer->Neurons[dest];
             double weight;
-            ASSERT(lower_neuron->GetLastWeight(&weight),
+            double actual_input;
+            ASSERT(lower_neuron->GetLastWeight(&weight, &actual_input),
                 "Neuron has the wrong number of weights.");
+            double lower_input = internal.back();
+            ASSERT(lower_input == actual_input, "Got the wrong weight!");
             error += weight * last_errors_input[dest];
+            //printf("Error: %f\n", error);
           }
        }
 
-        // Do this as long as it's not the input layer.
-        if (layer_i != 0) {
-          last_errors_output[neuron_i] = error;
-          double internal_out = internal.back();
-          internal.pop_back();
-          double signal = impulse->Derivative(internal_out) * error;
-          ASSERT(neuron->AdjustWeights(learning_rate_, momentum_, signal),
-              "Failed to update neuron weights.");
+       // Do this as long as it's not the input layer.
+       if (layer_i != 0) {
+         last_errors_output[neuron_i] = error;
+         internal.pop_back();
+         if (is_output) {
+           printf("Error: %f\n", error);
+         }
+         ASSERT(neuron->AdjustWeights(learning_rate_, 
+             momentum_, error, is_output),
+             "Failed to update neuron weights.");
         }
       } else {
         return false;

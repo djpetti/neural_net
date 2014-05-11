@@ -37,7 +37,8 @@ public:
   // Sets the neuron's input's weights to the contents of a vector.
   void SetWeights(const std::vector<double>& values);
   // Changes the weights according to a back propagated signal.
-  bool AdjustWeights(double learning_rate, double momentum, double signal);
+  bool AdjustWeights(double learning_rate, double momentum, double signal,
+      bool print);
   // Gets the neuron's current weights.
   inline void GetWeights(std::vector<double> *weights) {
     *weights = weights_;
@@ -55,7 +56,7 @@ public:
   }
   // The following two functions are used for the back propagation algorithm.
   // Returns weights in from the list in reverse order.
-  bool GetLastWeight(double *weight);
+  bool GetLastWeight(double *weight, double *input);
   // The next thing GetLastWeight will return is at the end of the weights list.
   void Reset();
 
@@ -66,10 +67,14 @@ private:
   double bias_;
   // The index of the weight that GetLastWeight will return next.
   int weight_i_;
+  // The last output of this neuron.
+  double last_output_;
   // The value of the neuron's inputs.
   std::vector<double> inputs_;
   // The value of the weight on each input.
   std::vector<double> weights_;
+  // The value of the weights before they were changed by backpropagation.
+  std::vector<double> old_weights_;
   // The last change to each of our weights.
   std::vector<double> delta_weights_;
 };

@@ -21,16 +21,26 @@ void Neuron::SetWeights(const std::vector<double>& values) {
   Reset();
 }
 
-bool Neuron::AdjustWeights(double learning_rate, double momentum, double signal) {
+bool Neuron::AdjustWeights(double learning_rate, double momentum, double error,
+    bool print) {
   std::vector<double> weights_buffer;
   if (weights_.size() == inputs_.size()) {
+    double signal = impulse_->Derivative(last_output_) * error; 
     // Adjust bias, which is basically a weight with the input permanently set
     // at 1.
-    SetBias(bias_ + learning_rate * signal);
+    SetBias(bias_ + (learning_rate * signal));
+
     for (uint32_t i = 0; i < weights_.size(); ++i) {
       double delta = learning_rate * signal * inputs_[i];
+      if (print) {
+        printf("Input: %f\n", inputs_[i]);
+      }
       delta += delta_weights_[i] * momentum;
       weights_[i] += delta;
+      if (print) {
+        printf("Delta: %f\n", delta);
+        printf("Weight: %f\n", weights_[i]);
+      }
       weights_buffer.push_back(delta);
     }
     delta_weights_.swap(weights_buffer);
@@ -46,19 +56,27 @@ bool Neuron::GetOutput(double *output) {
     double sum = bias_;
     for (uint32_t i = 0; i < inputs_.size(); ++i) {
       sum += inputs_[i] * weights_[i];
+      //printf("Inputs: %f, Weights: %f\n", inputs_[i], weights_[i]);
     }
+    //printf("Sum: %f\n", sum);
  
-    // Apply the output function.
+    // Apply the impulse function.
     *output = impulse_->Function(sum);
+    last_output_ = *output;
+
+    // Save the current weights.
+    old_weights_ = weights_;
+
     return true;
   } else {
     return false;
   }
 }
 
-bool Neuron::GetLastWeight(double *weight) {
+bool Neuron::GetLastWeight(double *weight, double *input) {
   if (weight_i_ >= 0) {
-    *weight = weights_[weight_i_--];
+    *weight = old_weights_[weight_i_];
+    *input = inputs_[weight_i_--];
     return true;
   }
   return false;

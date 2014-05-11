@@ -33,6 +33,12 @@ class MFNetwork : public Network {
   inline void AddHiddenLayer() {
     DoLayerAdd(layer_size_);
   }
+  // Add the specified quantity of hidden layers.
+  inline void AddHiddenLayers(int layers) {
+    for (int i = 0; i < layers; ++i) {
+      DoLayerAdd(layer_size_);
+    }
+  }
   // Returns the number of hidden layers.
   inline int HiddenLayerQuantity() {
     return layers_.size() - 2; // subtract input and output.

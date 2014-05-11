@@ -16,8 +16,9 @@ class ImpulseFunction {
   ImpulseFunction() = default;
   virtual double Function(double input) = 0;
   // User can implement a derivative, falls back on linear approximation if a
-  // derivative isn't implemented.
-  virtual double Derivative(double input);
+  // derivative isn't implemented. Because we use it for back-propagation, it
+  // takes the output to the normal function.
+  virtual double Derivative(double output);
 
   DISSALOW_COPY_AND_ASSIGN(ImpulseFunction);
 
@@ -58,9 +59,8 @@ class Sigmoid : public ImpulseFunction {
   inline virtual double Function(double input) {
     return 1 / (1 + exp(-input));
   }
-  inline virtual double Derivative(double input) {
-    double value = Function(input);
-    return value * (1 - value);
+  inline virtual double Derivative(double output) {
+    return output * (1 - output);
   }
 };
 
@@ -70,9 +70,25 @@ class TanH : public ImpulseFunction {
   inline virtual double Function(double input) {
     return tanh(input);
   }
-  inline virtual double Derivative(double input) {
-    return pow((1 / cosh(input)), 2);
+  inline virtual double Derivative(double output) {
+    return pow((1 / cosh(atanh(output))), 2);
   }
+};
+
+// A linear output function, often useful for outputs.
+class Linear : public ImpulseFunction {
+ public:
+  explicit Linear(double slope) :
+      slope_(slope) {}
+  inline virtual double Function(double input) {
+    return slope_ * input;
+  }
+  inline virtual double Derivative(double output) {
+    return slope_;
+  }
+
+ private:
+  double slope_;
 };
 
 } //network
