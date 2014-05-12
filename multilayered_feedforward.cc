@@ -114,17 +114,11 @@ void MFNetwork::SetInputs(double *values) {
   }
 }
   
-bool MFNetwork::DoGetOutputs(double *values, std::vector<double> *osubj) {
+bool MFNetwork::GetOutputs(double *values) {
   if (!HiddenLayerQuantity()) {
     // Our network won't work without at least one hidden layer, and it will be
     // pretty useless.
     return false;
-  }
-
-  bool save_outputs = true;
-  if (osubj == nullptr) {
-    // We're not doing back propagation.
-    save_outputs = false;
   }
 
   // Maps the output of each neuron in a layer to the index of its neuron.
@@ -172,9 +166,6 @@ bool MFNetwork::DoGetOutputs(double *values, std::vector<double> *osubj) {
         return false;
       }
       layer_output_buffer[neuron_i] = out;
-      if (save_outputs) {
-        osubj->push_back(out);
-      }
     }  
 
     // First clear all the output vectors.
@@ -198,10 +189,6 @@ bool MFNetwork::DoGetOutputs(double *values, std::vector<double> *osubj) {
     ASSERT(layer_input_buffer_[i].size() == 1,
         "Invalid routing for output layer.");
     values[i] = layer_input_buffer_[i][0];
-    //if (save_outputs) {
-    //  // We don't want the last outputs in our vector of internal outputs.
-    //  osubj->pop_back();
-    //}
   }
 
   return true;
@@ -305,16 +292,15 @@ bool MFNetwork::CopyLayout(const MFNetwork& source) {
   return true;
 }
 
-bool MFNetwork::PropagateError(double *targets, double *final_outputs/* =
-    nullptr*/, std::vector<double> *internal_outputs/* = nullptr*/) {  
+bool MFNetwork::PropagateError(double *targets,
+    double *final_outputs/* = nullptr*/) {
   double outputs [num_outputs_];
   std::vector<double> internal;
-  if (final_outputs == nullptr || internal_outputs == nullptr) {
-    DoGetOutputs(outputs, &internal);
+  if (final_outputs == nullptr) {
+    GetOutputs(outputs);
   } else {
     // We can skip calculating outputs.
     memcpy(outputs, final_outputs, sizeof(outputs[0]) * num_outputs_);
-    internal = *internal_outputs;
   }
 
   // Stores the errors from the last layer. We also use it to store the network
@@ -348,11 +334,8 @@ bool MFNetwork::PropagateError(double *targets, double *final_outputs/* =
           for (int dest : layer->RoutingMap[neuron_i]) {
             Neuron *lower_neuron = lower_layer->Neurons[dest];
             double weight;
-            double actual_input;
-            ASSERT(lower_neuron->GetLastWeight(&weight, &actual_input),
+            ASSERT(lower_neuron->GetLastWeight(&weight),
                 "Neuron has the wrong number of weights.");
-            double lower_input = internal.back();
-            ASSERT(lower_input == actual_input, "Got the wrong weight!");
             error += weight * last_errors_input[dest];
           }
        }
@@ -360,7 +343,6 @@ bool MFNetwork::PropagateError(double *targets, double *final_outputs/* =
        // Do this as long as it's not the input layer.
        if (layer_i != 0) {
          last_errors_output[neuron_i] = error;
-         internal.pop_back();
          ASSERT(neuron->AdjustWeights(learning_rate_, momentum_, error),
              "Failed to update neuron weights.");
         }

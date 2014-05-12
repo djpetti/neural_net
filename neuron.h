@@ -57,7 +57,7 @@ public:
   }
   // The following two functions are used for the back propagation algorithm.
   // Returns weights in from the list in reverse order.
-  bool GetLastWeight(double *weight, double *input);
+  bool GetLastWeight(double *weight);
   // The next thing GetLastWeight will return is at the end of the weights list.
   void Reset();
 

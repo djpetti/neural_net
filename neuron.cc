@@ -70,10 +70,9 @@ bool Neuron::GetOutput(double *output) {
   }
 }
 
-bool Neuron::GetLastWeight(double *weight, double *input) {
+bool Neuron::GetLastWeight(double *weight) {
   if (weight_i_ >= 0) {
-    *weight = old_weights_[weight_i_];
-    *input = inputs_[weight_i_--];
+    *weight = old_weights_[weight_i_--];
     return true;
   }
   return false;

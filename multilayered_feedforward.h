@@ -50,9 +50,7 @@ class MFNetwork : public Network {
   // array values. Values must be able to accomodate a number of items that is
   // at least the number of outputs. Returns true for success, false for
   // failure.
-  inline bool GetOutputs(double *values) {
-    return DoGetOutputs(values, nullptr);
-  }
+  bool GetOutputs(double *values);
   // Sets neuron to point to the neuron in the layer specified by layer_i, which
   // indexes from 0, starting with the input layer, and neuron_i, which indexes
   // from 0. Returns nullptr upon failure.
@@ -103,11 +101,10 @@ class MFNetwork : public Network {
   // give it a target value, and it calculates the error.
   // Although it can return false, the only time it should really do so is if
   // you're trying to propagate an error through a network which can't give you
-  // a valid output in the first place. <final_outputs> and <internal_ouputs>
-  // allow the user to provide output information to the function, saving the
-  // extra time to calculate it.
-  bool PropagateError(double *targets, double *final_outputs = nullptr,
-      std::vector<double> *internal_outputs = nullptr);
+  // a valid output in the first place. <final_outputs> allows the user to
+  // provide output information to the function, saving the extra time to
+  // calculate it.
+  bool PropagateError(double *targets, double *final_outputs = nullptr);
   // Constructs a network with the exact same architechture as this one. It
   // allocates it on the heap, and the caller MUST take ownership of it.
   // TODO(danielp): Get rid of this method, it's unnecessary and dumb.
@@ -150,9 +147,6 @@ class MFNetwork : public Network {
 
   // Layer adding helper, neurons is the number of neurons in the new layer.
   void DoLayerAdd(int neurons);
-  // Helper for getting the output, that can be customized depending on what
-  // type of learning the network is doing.
-  bool DoGetOutputs(double *values, std::vector<double> *osubj);
   // Writes an array representation of all the routes in the network, which can
   // then be written to a file more easily.
   void SerializeRoutes(uint32_t *routes);
