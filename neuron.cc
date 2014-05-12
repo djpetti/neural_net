@@ -28,8 +28,7 @@ void Neuron::SetWeights(const std::vector<double>& values) {
   Reset();
 }
 
-bool Neuron::AdjustWeights(double learning_rate, double momentum, double error,
-    bool print) {
+bool Neuron::AdjustWeights(double learning_rate, double momentum, double error) {
   std::vector<double> weights_buffer;
   if (weights_.size() == inputs_.size()) {
     double signal = impulse_->Derivative(last_output_) * error; 
@@ -39,15 +38,8 @@ bool Neuron::AdjustWeights(double learning_rate, double momentum, double error,
 
     for (uint32_t i = 0; i < weights_.size(); ++i) {
       double delta = learning_rate * signal * inputs_[i];
-      if (print) {
-        printf("Input: %f\n", inputs_[i]);
-      }
       delta += delta_weights_[i] * momentum;
       weights_[i] += delta;
-      if (print) {
-        printf("Delta: %f\n", delta);
-        printf("Weight: %f\n", weights_[i]);
-      }
       weights_buffer.push_back(delta);
     }
     delta_weights_.swap(weights_buffer);

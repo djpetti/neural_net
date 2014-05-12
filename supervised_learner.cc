@@ -1,6 +1,4 @@
 #include <math.h>
-#include <stdio.h> // temp
-#include <unistd.h> // temp
 
 #include <algorithm>
 #include <limits>
@@ -37,20 +35,17 @@ bool SupervisedLearner::Learn(double error, int max_iterations/* = -1*/) {
   int cycle = 0;
 
   // Separate out training and testing data.
-  uint32_t split = training_data_.size() * 0.8;
+  int split = training_data_.size() * 0.8;
   std::vector<TrainingItem> training_data;
   std::vector<TrainingItem> testing_data;
   std::random_shuffle(training_data_.begin(), training_data_.end());
   if (training_data_.size() == 1) {
     training_data = testing_data = training_data_;
   } else {
-    for (uint32_t i = 0; i < training_data_.size(); ++i) {
-      if (i < split) {
-        training_data.push_back(training_data_[i]);
-      } else {
-        testing_data.push_back(training_data_[i]);
-      }
-    }
+    training_data.assign(training_data_.begin(), 
+        training_data_.begin() + split);
+    testing_data.assign(training_data_.begin() + split + 1,
+        training_data_.end());
   }
   while (max_iterations == -1 || cycle < max_iterations) {
     current_error = 0;
@@ -58,16 +53,8 @@ bool SupervisedLearner::Learn(double error, int max_iterations/* = -1*/) {
     std::random_shuffle(training_data.begin(), training_data.end());
     for (TrainingItem item : training_data) {
       trainee_->SetInputs(item.InputData);
-      // Get network output.
-      double outputs [num_outputs_];
-      std::vector<double> internal;
-      if (!trainee_->DoGetOutputs(outputs, &internal)) {
-        return false;
-      }
-      //printf("Training Output: %f\n", outputs[0]);
-      
       // Do BackPropagation
-      if (!trainee_->PropagateError(item.ExpectedOutput, outputs, &internal)) {
+      if (!trainee_->PropagateError(item.ExpectedOutput)) {
         return false;
       }
     }
@@ -78,22 +65,17 @@ bool SupervisedLearner::Learn(double error, int max_iterations/* = -1*/) {
       if (!trainee_->GetOutputs(outputs)) {
         return false;
       }
-      //printf("Output: %f\n", outputs[0]);
       // Calculate cumulative error.
       for (uint32_t i = 0; i < num_outputs_; ++i) {
         current_error += pow(item.ExpectedOutput[i] - outputs[i], 2);
       }
     }
     current_error /= 2;
-    printf("Total Error: %f\n", current_error);
     if (current_error < error) {
       break;
     }
     
     ++cycle;
-    printf("Cycle: %d\n", cycle);
-
-    //sleep(1);
   }
   return true;
 }

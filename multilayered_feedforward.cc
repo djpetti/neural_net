@@ -336,10 +336,8 @@ bool MFNetwork::PropagateError(double *targets, double *final_outputs/* =
       
       if (impulse != nullptr) {
         double error = 0;
-        bool is_output = false;
         if (static_cast<uint32_t>(layer_i) == layers_.size() - 1) {
           // Output layer.
-          is_output = true;
           error = last_errors_input[neuron_i];
         } else if (layer_i != 0) {
           // Hidden layer.
@@ -356,7 +354,6 @@ bool MFNetwork::PropagateError(double *targets, double *final_outputs/* =
             double lower_input = internal.back();
             ASSERT(lower_input == actual_input, "Got the wrong weight!");
             error += weight * last_errors_input[dest];
-            //printf("Error: %f\n", error);
           }
        }
 
@@ -364,11 +361,7 @@ bool MFNetwork::PropagateError(double *targets, double *final_outputs/* =
        if (layer_i != 0) {
          last_errors_output[neuron_i] = error;
          internal.pop_back();
-         if (is_output) {
-           printf("Error: %f\n", error);
-         }
-         ASSERT(neuron->AdjustWeights(learning_rate_, 
-             momentum_, error, is_output),
+         ASSERT(neuron->AdjustWeights(learning_rate_, momentum_, error),
              "Failed to update neuron weights.");
         }
       } else {

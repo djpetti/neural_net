@@ -1,6 +1,6 @@
 // Tests for SupervisedLearner.
 #include <math.h>
-#include <stdio.h> // temp
+#include <stdio.h>
 
 #include "gtest/gtest.h"
 #include "../multilayered_feedforward.h"
@@ -29,8 +29,6 @@ TEST(BasicTests, SinglePoint) {
 
 TEST(BasicTests, SineWaveTest) {
   // A much more complicated test that attempts to approximate a sine wave.
-  // Note that sigmoid-activated networks are not very good at this, that's why
-  // ours is so huge.
   network::MFNetwork network(1, 1, 14);
   network.AddHiddenLayers(1);
   network::Sigmoid sigmoid;
@@ -42,15 +40,22 @@ TEST(BasicTests, SineWaveTest) {
   network.SetMomentum(0);
   SupervisedLearner learner(&network);
 
-  // Add training data based on our sine wave. We'll break it into 100
+  // Add training data based on our sine wave. We'll break it into 20
   // subintervals.
+  double input [1];
+  double output [1];
   for (int i = 1; i <= 20; ++i) {
-    double input [] = {(4 * M_PI / 20) * i};
-    double output [] = {sin(input[0])};
+    input[0] = (4 * M_PI / 20) * i;
+    output[0] = sin(input[0]);
     learner.AddTrainingData(input, output);
   }
 
   EXPECT_TRUE(learner.Learn(0.03, 15000));
+  
+  double actual [1];
+  network.SetInputs(input);
+  network.GetOutputs(actual);
+  printf("Final point error: %f\n", actual[0] - output[0]);
 }
 
 } // test
