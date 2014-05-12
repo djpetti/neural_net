@@ -10,7 +10,7 @@
 namespace algorithm {
 namespace test {
 
-/*TEST(BasicTests, SinglePoint) {
+TEST(BasicTests, SinglePoint) {
   // Can we train for single criterion?
   network::MFNetwork network(1, 1, 5);
   network.AddHiddenLayer();
@@ -25,7 +25,7 @@ namespace test {
   learner.AddTrainingData(input, target);
 
   EXPECT_TRUE(learner.Learn(0.0001));
-}*/
+}
 
 TEST(BasicTests, SineWaveTest) {
   // A much more complicated test that attempts to approximate a sine wave.
@@ -35,11 +35,9 @@ TEST(BasicTests, SineWaveTest) {
   network.AddHiddenLayers(1);
   network::Sigmoid sigmoid;
   network::Linear linear(1);
-  network::DumbOutputer dumb;
   network.RandomWeights(-2, 2);
   network.SetOutputFunctions(&sigmoid);
   network.SetLayerOutputFunctions(2, &linear);
-  network.SetLayerOutputFunctions(0, &dumb);
   network.SetLearningRate(0.2);
   network.SetMomentum(0);
   SupervisedLearner learner(&network);

@@ -14,6 +14,7 @@ namespace network {
 class ImpulseFunction {
  public:
   ImpulseFunction() = default;
+  virtual ~ImpulseFunction() = default;
   virtual double Function(double input) = 0;
   // User can implement a derivative, falls back on linear approximation if a
   // derivative isn't implemented. Because we use it for back-propagation, it

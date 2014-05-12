@@ -40,8 +40,14 @@ void MFNetwork::DoLayerAdd(int neurons) {
   Layer_t *layer = new Layer_t();
   
   // Populate layer with neurons.
+  std::vector<double> ones(1, 1);
   for (int i = 0; i < neurons; ++i) {
-    layer->Neurons.push_back(new Neuron());
+    Neuron *neuron = new Neuron();
+    if (!layers_.size()) {
+      // All the weights in our input layer should always be one.
+      neuron->SetWeights(ones);
+    }
+    layer->Neurons.push_back(neuron);
   }
 
   // Routing map setup.
@@ -146,16 +152,15 @@ bool MFNetwork::DoGetOutputs(double *values, std::vector<double> *osubj) {
           double num;
           if (use_special_weights_ == 1) {
             // Random weights.
-            if (layer_i) {
-              int range = upper_ - lower_;
-              num = rand() % range + lower_;
-            } else {
-              // For an input layer, we just want them to be 1.
-              num = 1;
-            }
+            int range = upper_ - lower_;
+            num = rand() % range + lower_;
           } else {
             // User-specified weights.
             num = user_weight_;
+          }
+          if (!layer_i) {
+            // All the weights of the input layer should be 1.
+            num = 1;
           }
           weights.push_back(num);
         }
@@ -204,7 +209,7 @@ bool MFNetwork::DoGetOutputs(double *values, std::vector<double> *osubj) {
 
 Neuron *MFNetwork::GetNeuron(uint32_t layer_i, uint32_t neuron_i) {
   // Do a little range checking to guard for user stupidity.
-  if (layer_i >= layers_.size()) {
+  if (!layer_i || layer_i >= layers_.size()) {
     return nullptr;
   }
   Layer_t *layer = layers_[layer_i];
@@ -215,8 +220,9 @@ Neuron *MFNetwork::GetNeuron(uint32_t layer_i, uint32_t neuron_i) {
   return layer->Neurons[neuron_i];
 }
 
-bool MFNetwork::SetLayerWeights(uint32_t layer_i, const std::vector<double>& values) {
-  if (layer_i >= layers_.size()) {
+bool MFNetwork::SetLayerWeights(uint32_t layer_i,
+    const std::vector<double>& values) {
+  if (!layer_i || layer_i >= layers_.size()) {
     return false;
   }
   Layer_t *layer = layers_[layer_i];
@@ -227,7 +233,8 @@ bool MFNetwork::SetLayerWeights(uint32_t layer_i, const std::vector<double>& val
 }
 
 void MFNetwork::SetOutputFunctions(ImpulseFunction *impulse) {
-  for (Layer_t *layer : layers_) {
+  for (uint32_t layer_i = 1; layer_i < layers_.size(); ++layer_i) {
+    Layer_t *layer = layers_[layer_i];
     for (Neuron *neuron : layer->Neurons) {
       neuron->SetOutputFunction(impulse);
     }
@@ -236,7 +243,7 @@ void MFNetwork::SetOutputFunctions(ImpulseFunction *impulse) {
 
 bool MFNetwork::SetLayerOutputFunctions(uint32_t layer_i,
     ImpulseFunction *impulse) {
-  if (layer_i >= layers_.size()) {
+  if (!layer_i || layer_i >= layers_.size()) {
     return false;
   }
   Layer_t *layer = layers_[layer_i];
@@ -247,14 +254,14 @@ bool MFNetwork::SetLayerOutputFunctions(uint32_t layer_i,
 }
 
 void MFNetwork::SetBiases(double bias) {
-  for (uint32_t i = 0; i < layers_.size(); ++i) {
+  for (uint32_t i = 1; i < layers_.size(); ++i) {
     ASSERT(SetLayerBiases(i, bias),
         "SetLayerBiases failing for some weird reason.");
   }
 }
 
 bool MFNetwork::SetLayerBiases(uint32_t layer_i, double bias) {
-  if (layer_i >= layers_.size()) {
+  if (!layer_i || layer_i >= layers_.size()) {
     return false;
   }
 
@@ -395,7 +402,8 @@ uint32_t MFNetwork::GetNeuronQuantity() {
 
 size_t MFNetwork::GetChromosomeSize() {
   int num_weights = 0;
-  for (Layer_t *layer : layers_) {
+  for (uint32_t layer_i = 1; layer_i < layers_.size(); ++layer_i) {
+    Layer_t *layer = layers_[layer_i];
     for (Neuron *neuron : layer->Neurons) {
       num_weights += neuron->GetNumWeights();
       // Bias weight.
@@ -409,7 +417,8 @@ size_t MFNetwork::GetChromosomeSize() {
 bool MFNetwork::GetChromosome(uint64_t *chromosome) {
   std::vector<double> neuron_weights;
   int weights_i = 0;
-  for (Layer_t *layer : layers_) {
+  for (uint32_t layer_i = 1; layer_i < layers_.size(); ++layer_i) {
+    Layer_t *layer = layers_[layer_i];
     for (Neuron *neuron : layer->Neurons) {
       neuron->GetWeights(&neuron_weights);
       for (double weight : neuron_weights) {
@@ -426,7 +435,8 @@ bool MFNetwork::GetChromosome(uint64_t *chromosome) {
 
 bool MFNetwork::SetChromosome(uint64_t *chromosome) {
   int weights_i = 0;
-  for (Layer_t *layer : layers_) {
+  for (uint32_t layer_i = 1; layer_i < layers_.size(); ++layer_i) {
+    Layer_t *layer = layers_[layer_i];
     for (Neuron *neuron : layer->Neurons) {
       int weights_num = neuron->GetNumWeights();
       int max_index = weights_i + weights_num - 1;

@@ -29,8 +29,7 @@ TEST(BasicTests, FullTest) {
   double values [] = {10};
   Threshold threshold1(1);
   network.SetInputs(values);
-  // It should return false, since we haven't set an output function.
-  EXPECT_FALSE(network.GetOutputs(values));
+  EXPECT_TRUE(network.GetOutputs(values));
   network.SetOutputFunctions(&threshold1);
   // NOW it should return true...
   EXPECT_TRUE(network.GetOutputs(values));
@@ -54,7 +53,6 @@ TEST(BasicTests, XorTest) {
   out_weights[1] = -2;
   EXPECT_TRUE(network.SetLayerWeights(1, weights));
   EXPECT_TRUE(network.SetLayerWeights(2, out_weights));
-  EXPECT_TRUE(network.SetLayerWeights(0, weights));
   weights.push_back(1);
   network.GetNeuron(1, 1)->SetWeights(weights);
   // Set up routes.

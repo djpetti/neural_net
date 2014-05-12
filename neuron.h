@@ -12,11 +12,13 @@ namespace network {
 class Neuron {
 public:
   Neuron();
+  ~Neuron();
   // Sets the impulse function for the neuron. It should be differentiable if
   // back propagation is to be used. Note that the instance of ImpulseFunction
   // should be allocated somewhere where it won't dissapear.
   inline void SetOutputFunction(ImpulseFunction *impulse) {
     impulse_ = impulse;
+    own_impulse_ = false;
   }
   // Returns a pointer to the neuron's impulse function.
   inline ImpulseFunction *GetOutputFunction() {
@@ -63,6 +65,8 @@ public:
 private:
   // The neuron's impulse function.
   ImpulseFunction *impulse_;
+  // Whether or not we're responsible for our impulse function.
+  bool own_impulse_ = true;
   // The bias weight.
   double bias_;
   // The index of the weight that GetLastWeight will return next.
