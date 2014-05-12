@@ -146,8 +146,9 @@ bool MFNetwork::GetOutputs(double *values) {
           double num;
           if (use_special_weights_ == 1) {
             // Random weights.
-            int range = upper_ - lower_;
-            num = rand() % range + lower_;
+            int range = upper_ * 1000 - lower_ * 1000;
+            num = rand() % range + lower_ * 1000;
+            num /= 1000;
           } else {
             // User-specified weights.
             num = user_weight_;
