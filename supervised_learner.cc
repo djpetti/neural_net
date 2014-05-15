@@ -74,12 +74,13 @@ bool SupervisedLearner::Learn(double error, int max_iterations/* = -1*/) {
     current_error /= 2;
     if (current_error < error) {
       LOG(Level::INFO, "Final error: %f", current_error);
-      break;
+      return true;
     }
     
     ++cycle;
   }
-  LOG(level)
+  LOG(Level::WARNING,
+      "Reached max iterations! Final error: %f", current_error);
   return true;
 }
 
