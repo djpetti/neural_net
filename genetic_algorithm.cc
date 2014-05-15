@@ -4,6 +4,7 @@
 #include <algorithm>
 
 #include "genetic_algorithm.h"
+#include "logger.h"
 
 using ::network::Network;
 
@@ -129,7 +130,8 @@ Network *GeneticAlgorithm::PickRoulette() {
      return kv.first; 
     }
   }
-  ASSERT(false, "Something weird happened.");
+  CHECK(false, "Something weird happened.");
+  return nullptr;
 }
 
 void GeneticAlgorithm::Mate(Network *mother,

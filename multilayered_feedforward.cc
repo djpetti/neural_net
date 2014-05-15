@@ -5,7 +5,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "macros.h"
+#include "logger.h"
 #include "multilayered_feedforward.h"
 
 namespace network {
@@ -183,11 +183,11 @@ bool MFNetwork::GetOutputs(double *values) {
 
   // Check that we have the expected number of outputs.
   // We use layer_input_buffer_ here since layer_output_buffer has been cleared.
-  ASSERT(layer_input_buffer_.size() == num_outputs_,
+  CHECK(layer_input_buffer_.size() == num_outputs_,
       "Got the wrong number of outputs.");
   for (uint32_t i = 0; i < num_outputs_; ++i) {
     // Should be insured by special routing map for output layer.
-    ASSERT(layer_input_buffer_[i].size() == 1,
+    CHECK(layer_input_buffer_[i].size() == 1,
         "Invalid routing for output layer.");
     values[i] = layer_input_buffer_[i][0];
   }
@@ -243,7 +243,7 @@ bool MFNetwork::SetLayerOutputFunctions(uint32_t layer_i,
 
 void MFNetwork::SetBiases(double bias) {
   for (uint32_t i = 1; i < layers_.size(); ++i) {
-    ASSERT(SetLayerBiases(i, bias),
+    CHECK(SetLayerBiases(i, bias),
         "SetLayerBiases failing for some weird reason.");
   }
 }
@@ -335,7 +335,7 @@ bool MFNetwork::PropagateError(double *targets,
           for (int dest : layer->RoutingMap[neuron_i]) {
             Neuron *lower_neuron = lower_layer->Neurons[dest];
             double weight;
-            ASSERT(lower_neuron->GetLastWeight(&weight),
+            CHECK(lower_neuron->GetLastWeight(&weight),
                 "Neuron has the wrong number of weights.");
             error += weight * last_errors_input[dest];
           }
@@ -344,7 +344,7 @@ bool MFNetwork::PropagateError(double *targets,
        // Do this as long as it's not the input layer.
        if (layer_i != 0) {
          last_errors_output[neuron_i] = error;
-         ASSERT(neuron->AdjustWeights(learning_rate_, momentum_, error),
+         CHECK(neuron->AdjustWeights(learning_rate_, momentum_, error),
              "Failed to update neuron weights.");
         }
       } else {

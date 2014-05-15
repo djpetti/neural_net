@@ -11,18 +11,4 @@
     T & operator=(const T&) = delete; \
     T(const T&) = delete;
 
-// I don't like C asserts that much...
-#ifndef NDEBUG
-#   define ASSERT(condition, message) \
-    do { \
-        if (! (condition)) { \
-            fprintf(stderr, "Assertion `" #condition "` failed in:\
-            %s line %d: " #message "\n", __FILE__, __LINE__); \
-            exit(EXIT_FAILURE); \
-        } \
-    } while (false)
-#else
-#   define ASSERT(condition, message) do { } while (false)
-#endif
-
 #endif

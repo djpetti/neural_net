@@ -16,26 +16,17 @@ class ImpulseFunction {
   ImpulseFunction() = default;
   virtual ~ImpulseFunction() = default;
   virtual double Function(double input) = 0;
-  // User can implement a derivative, falls back on linear approximation if a
-  // derivative isn't implemented. Because we use it for back-propagation, it
-  // takes the output to the normal function.
+  // User can implement a derivative, causes an assertion failure if sombody
+  // tries to use is and it isn't overriden. Because we use it for
+  // back-propagation, it takes the output to the function.
   virtual double Derivative(double output);
 
   DISSALOW_COPY_AND_ASSIGN(ImpulseFunction);
-
- protected:
-  // A flag the user can unset if their function isn't differentiable accross
-  // its domain. It basically causes an assertion failure if it's not set and
-  // someone tries to run the Derivative function.
-  bool differentiable_ = true;
 };
 
 // Basically sets output to its input.
 class DumbOutputer : public ImpulseFunction {
  public:
-  DumbOutputer() {
-    differentiable_ = false;
-  }
   inline virtual double Function(double input) {
     return input;
   }
@@ -45,9 +36,7 @@ class DumbOutputer : public ImpulseFunction {
 class Threshold : public ImpulseFunction {
  public:
   explicit Threshold(double threshold) :
-      threshold_(threshold) {
-    differentiable_ = false;
-  }
+      threshold_(threshold) {}
   virtual double Function(double input);
  
  private:

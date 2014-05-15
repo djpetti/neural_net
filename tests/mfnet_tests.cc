@@ -1,10 +1,10 @@
 // Tests for multilayered feedforward network.
 
-#include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 
 #include "gtest/gtest.h"
+#include "../logger.h"
 #include "../multilayered_feedforward.h"
 #include "../output_functions.h"
 
@@ -112,6 +112,8 @@ TEST(BasicTests, FileIOTest) {
 TEST(BackPropagationTests, DecreasingErrorTest) {
   // Does the error actually decrease when we run the back propagation
   // algorithm?
+  helpers::Logger::Show(Level::INFO);
+
   MFNetwork network(1, 1, 5);
   network.AddHiddenLayer();
   network.AddHiddenLayer();
@@ -132,8 +134,8 @@ TEST(BackPropagationTests, DecreasingErrorTest) {
   double final_output;
   ASSERT_TRUE(network.GetOutputs(&final_output));
   double final_error = fabs(0.5 - final_output);
-  printf("Initial error: %.10f\n", initial_error);
-  printf("Final error: %.10f\n", final_error);
+  LOG(Level::INFO, "Initial error: %.10f", initial_error);
+  LOG(Level::INFO, "Final error: %.10f", final_error);
   EXPECT_LE(final_error, initial_error);
 }
 

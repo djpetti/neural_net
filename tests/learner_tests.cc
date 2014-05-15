@@ -1,6 +1,5 @@
 // Tests for SupervisedLearner.
 #include <math.h>
-#include <stdio.h>
 
 #include "gtest/gtest.h"
 #include "../multilayered_feedforward.h"
@@ -55,7 +54,6 @@ TEST(BasicTests, SineWaveTest) {
   double actual [1];
   network.SetInputs(input);
   network.GetOutputs(actual);
-  printf("Final point error: %f\n", actual[0] - output[0]);
 }
 
 } // test
