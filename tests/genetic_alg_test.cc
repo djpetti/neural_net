@@ -150,7 +150,7 @@ TEST(GATest, RecombinationTest) {
   double all_ones;
   double all_zeros;
   memcpy(&all_ones, &all_ones_i, sizeof(uint64_t));
-  memcpy(&all_zeros, &all_ones_i, sizeof(uint64_t));
+  memcpy(&all_zeros, &all_zeros_i, sizeof(uint64_t));
   network.SetWeights(all_ones);
   network2.SetWeights(all_zeros);
   network.SetBiases(all_ones);
