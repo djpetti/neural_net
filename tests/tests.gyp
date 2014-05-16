@@ -2,6 +2,7 @@
   'target_defaults': {
     'cflags': [
       '-g',
+      '-O0',
     ],
   },
   'targets': [
