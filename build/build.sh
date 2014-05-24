@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# Work from the script directory
+cd "$(dirname "$0")"
+
 ./download_externals.sh
 GYP=externals/downloaded/gyp/gyp
 NINJA=externals/downloaded/ninja/ninja
