@@ -128,9 +128,7 @@ TEST(BackPropagationTests, DecreasingErrorTest) {
   ASSERT_TRUE(network.GetOutputs(&initial_output));
   double initial_error = fabs(0.5 - initial_output);
   double target = 0.5;
-  for (int i = 0; i < 100; ++i) {
-    network.PropagateError(&target);
-  }
+  network.PropagateError(&target);
   double final_output;
   ASSERT_TRUE(network.GetOutputs(&final_output));
   double final_error = fabs(0.5 - final_output);

@@ -17,7 +17,7 @@
 // Forward declaration for friending.
 namespace algorithm {
   class SupervisedLearner;
-}
+} // algorithm
 
 namespace network {
 
@@ -30,18 +30,20 @@ class MFNetwork : public Network {
   MFNetwork(uint32_t inputs, uint32_t outputs, uint32_t layer_size);
   virtual ~MFNetwork();
   // Adds a new hidden layer.
-  inline void AddHiddenLayer() {
-    DoLayerAdd(layer_size_);
-  }
+  void AddHiddenLayer(int size = -1);
   // Add the specified quantity of hidden layers.
-  inline void AddHiddenLayers(int layers) {
+  inline void AddHiddenLayers(int layers, int size = -1) {
     for (int i = 0; i < layers; ++i) {
-      DoLayerAdd(layer_size_);
+      AddHiddenLayer(size);
     }
   }
   // Returns the number of hidden layers.
-  inline int HiddenLayerQuantity() {
-    return layers_.size() - 2; // subtract input and output.
+  inline uint32_t HiddenLayerQuantity() {
+    if (layers_.size() > 2) {
+      return layers_.size() - 2; // subtract input and output.
+    } else {
+      return 0;
+    }
   }
   // Writes contents of array values to the inputs. Values must be the same
   // size as the number of inputs.
@@ -145,8 +147,6 @@ class MFNetwork : public Network {
     std::map<int, std::vector<int> > RoutingMap; 
   };
 
-  // Layer adding helper, neurons is the number of neurons in the new layer.
-  void DoLayerAdd(int neurons);
   // Writes an array representation of all the routes in the network, which can
   // then be written to a file more easily.
   void SerializeRoutes(uint32_t *routes);
@@ -156,6 +156,8 @@ class MFNetwork : public Network {
   // Takes an array representation of the routes in a network and rebuilds the
   // routing maps.
   void DeserializeRoutes(uint32_t *routes);
+  // Updates the default routing between <source> and <dest>
+  void UpdateRouting(Layer_t *source, Layer_t *dest);
 
   uint32_t num_inputs_;
   uint32_t num_outputs_;

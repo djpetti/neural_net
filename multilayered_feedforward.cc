@@ -23,8 +23,8 @@ MFNetwork::MFNetwork(uint32_t inputs, uint32_t outputs, uint32_t layer_size) :
   // Seed random number generator.
   srand(time(NULL));
   // Create the input and output layers.
-  DoLayerAdd(num_inputs_);
-  DoLayerAdd(num_outputs_);
+  AddHiddenLayer(num_inputs_);
+  AddHiddenLayer(num_outputs_);
 }
 
 MFNetwork::~MFNetwork() {
@@ -36,18 +36,21 @@ MFNetwork::~MFNetwork() {
   }
 }
 
-void MFNetwork::DoLayerAdd(int neurons) {
+void MFNetwork::AddHiddenLayer(int size/* = -1*/) {
+  if (size < 0) {
+    size = layer_size_;
+  }
+
   Layer_t *layer = new Layer_t();
   
   // Populate layer with neurons.
   std::vector<double> ones(1, 1);
-  for (int i = 0; i < neurons; ++i) {
+  for (int i = 0; i < size; ++i) {
     Neuron *neuron = new Neuron();
     if (!layers_.size()) {
       // All the weights in our input layer should always be one.
       neuron->SetWeights(ones);
     }
-    layer->Neurons.push_back(neuron);
   }
 
   // Routing map setup.
@@ -57,40 +60,21 @@ void MFNetwork::DoLayerAdd(int neurons) {
     for (uint32_t i = 0; i < num_outputs_; ++i) {
       layer->RoutingMap[i] = std::vector<int> (1, i);
     }
-  } else {
-    // Any other layer defaults to having each neuron send its outputs to every
+    // Also, the input should be connected directly to the outputs.
+    UpdateRouting(layers_[0], layer);
+  } else if (!layers_.empty()) {
+    // Hidden layers default to having each neuron send its outputs to every
     // neuron in the next layer.
-    uint32_t size;
-    uint32_t dest_size;
-    if (layers_.empty()) {
-      // Input layer.
-      size = num_inputs_;
-      dest_size = layer_size_;
-    } else {
-      // Hidden layer.
-      size = layer_size_;
-      dest_size = num_outputs_;
-    }
-
-    for (uint32_t i = 0; i < size; ++i) {
-      for (uint32_t i1 = 0; i1 < dest_size; ++i1) {
-        layer->RoutingMap[i].push_back(i1);
-      }
-    }
+    UpdateRouting(layer, layers_[layers_.size() - 1]);
   }
-
-  if (layers_.size() > 2) {
-    // If we're using default routing, we need to modify the penultimate hidden
+  
+  if (layers_.size() >= 2) {
+    // If we're using default routing, we need to modify the penultimate
     // layer so that it broadcasts to the right number of neurons for the next
     // hidden layer instead of the output layer.
     Layer_t *last_added = layers_[layers_.size() - 2];
     if (last_added->DefaultRouting) {
-      last_added->RoutingMap.clear();
-      for (uint32_t i = 0; i < layer_size_; ++i) {
-        for (uint32_t i1 = 0; i1 < layer_size_; ++i1) {
-          last_added->RoutingMap[i].push_back(i1);
-        }
-      }
+      UpdateRouting(last_added, layer);
     }
   }
 
@@ -479,6 +463,15 @@ void MFNetwork::DeserializeRoutes(uint32_t *routes) {
   }
 }
 
+void MFNetwork::UpdateRouting(Layer_t *source, Layer_t *dest) {
+  source->RoutingMap.clear();
+  for (uint32_t i = 0; i < source->Neurons.size(); ++i) {
+    for (uint32_t i1 = 0; i1 < dest->Neurons.size(); ++i1) {
+      source->RoutingMap[i].push_back(i1);
+    }
+  }
+}
+
 bool MFNetwork::SaveToFile(const char *path) {
   FILE *out_file = fopen(path, "w");
   if (!out_file) {
@@ -492,12 +485,24 @@ bool MFNetwork::SaveToFile(const char *path) {
       static_cast<int32_t>(layer_size_),
       static_cast<int32_t>(use_special_weights_),
       upper_,
-      lower_,
-      static_cast<int32_t>(layers_.size())};
+      lower_ };
   double weight_info [] = {
       user_weight_};
-  fwrite(basic_info, sizeof(basic_info[0]), 7, out_file);
+  fwrite(basic_info, sizeof(basic_info[0]), 6, out_file);
   fwrite(weight_info, sizeof(weight_info[0]), 1, out_file);
+
+  // Save hidden layer size information.
+  uint32_t num_hidden = HiddenLayerQuantity();
+  uint32_t layer_sizes [num_hidden];
+  if (num_hidden > 0) {
+    for (uint32_t i = 0; i < HiddenLayerQuantity(); ++i) {
+      layer_sizes[i] = layers_[i]->Neurons.size();
+    }
+  }
+  fwrite(&num_hidden, sizeof(num_hidden), 1, out_file);
+  if (num_hidden > 0) {
+    fwrite(layer_sizes, sizeof(layer_sizes[0]), num_hidden, out_file);
+  }
   
   // Save our routing information from the layers structures.
   uint32_t num_routes = GetNumRoutes();
@@ -525,6 +530,7 @@ bool MFNetwork::ReadFromFile(const char *path) {
     return false;
   }
 
+  // Retrieve basic info.
   int32_t basic_info [7];
   double weight_info [1];
   fread(basic_info, sizeof(basic_info[0]), 7, in_file);
@@ -535,23 +541,32 @@ bool MFNetwork::ReadFromFile(const char *path) {
   use_special_weights_ = basic_info[3];
   upper_ = basic_info[4];
   lower_ = basic_info[5];
-  uint32_t num_layers = basic_info[6];
   user_weight_ = weight_info[0];
+
+  // Retrieve hidden layer sizes.
+  uint32_t num_hidden;
+  fread(&num_hidden, sizeof(num_hidden), 1, in_file);
+  uint32_t layer_sizes [num_hidden];
+  if (num_hidden > 0) {
+    fread(layer_sizes, sizeof(layer_sizes[0]), num_hidden, in_file);
+  }
 
   // Our ctor already added two layers, but possibly without knowing the correct
   // size parameters. Therefore, we'll redo them.
   layers_.clear();
-  DoLayerAdd(num_inputs_);
-  DoLayerAdd(num_outputs_);
-  for (uint32_t i = 2; i < num_layers; ++i) {
-    DoLayerAdd(layer_size_);
+  AddHiddenLayer(num_inputs_);
+  AddHiddenLayer(num_outputs_);
+  for (uint32_t i = 0; i < num_hidden; ++i) {
+    AddHiddenLayer(layer_sizes[i]);
   }
   
+  // Retrieve routing info.
   uint32_t num_routes;
   fread(&num_routes, sizeof(num_routes), 1, in_file);
   uint32_t routes [num_routes];
   fread(routes, sizeof(routes[0]), num_routes, in_file);
   
+  // Retrieve chromosome.
   uint32_t size;
   fread(&size, sizeof(size), 1, in_file);
   uint64_t chromosome [size];
