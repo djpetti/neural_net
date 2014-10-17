@@ -14,7 +14,7 @@ namespace testing {
 TEST(BasicTests, FullTest) {
   // Basically a one-pass test for everything.
   MFNetwork network (1, 1, 2);
-  
+
   // Add two hidden layers.
   network.AddHiddenLayer();
   EXPECT_EQ(network.HiddenLayerQuantity(), 1);
@@ -26,12 +26,11 @@ TEST(BasicTests, FullTest) {
 
   // This is not a particularly useful test, it's mostly there to make sure we
   // can write some inputs and get some outputs without it segfaulting.
-  double values [] = {10};
+  double values[] = {10};
   Threshold threshold1(1);
   network.SetInputs(values);
   EXPECT_TRUE(network.GetOutputs(values));
   network.SetOutputFunctions(&threshold1);
-  // NOW it should return true...
   EXPECT_TRUE(network.GetOutputs(values));
   printf("Got output: %f\n", values[0]);
 }
@@ -43,7 +42,7 @@ TEST(BasicTests, XorTest) {
   // We set output functions in stages.
   Threshold threshold1(1);
   Threshold threshold2(2);
-  DumbOutputer dumboutputer; 
+  DumbOutputer dumboutputer;
   network.SetOutputFunctions(&dumboutputer);
   EXPECT_TRUE(network.SetLayerOutputFunctions(1, &threshold1));
   network.GetNeuron(1, 1)->SetOutputFunction(&threshold2);
@@ -92,7 +91,7 @@ TEST(BasicTests, FileIOTest) {
   // Can we save and load networks to and from files?
   MFNetwork network(1, 1, 1);
   network.AddHiddenLayer();
-  
+
   size_t chromo_size = network.GetChromosomeSize();
   uint64_t chromosome1 [chromo_size];
   uint64_t chromosome2 [chromo_size];
@@ -102,7 +101,7 @@ TEST(BasicTests, FileIOTest) {
   MFNetwork network2(2, 2, 2);
   EXPECT_TRUE(network2.ReadFromFile("test.bin"));
   network2.GetChromosome(chromosome2);
-  
+
   EXPECT_EQ(network.HiddenLayerQuantity(), network2.HiddenLayerQuantity());
   for (uint32_t i = 0; i < chromo_size; ++i) {
     EXPECT_EQ(chromosome1[i], chromosome2[i]);
@@ -120,10 +119,10 @@ TEST(BackPropagationTests, DecreasingErrorTest) {
   network.RandomWeights(-1, 1);
   Sigmoid sigmoid;
   network.SetOutputFunctions(&sigmoid);
- 
+
   double input = 0.01;
   network.SetInputs(&input);
-  
+
   double initial_output;
   ASSERT_TRUE(network.GetOutputs(&initial_output));
   double initial_error = fabs(0.5 - initial_output);
@@ -152,7 +151,7 @@ TEST(GenAlgTest, ChromosomeMethodsTest) {
   double double_one = 1;
   uint64_t chromo_value;
   memcpy(&chromo_value, &double_one, sizeof(chromo_value));
- 
+
   for (int i = 0; i < size; ++i) {
     // The default weight is 1, so that's what it should be.
     EXPECT_EQ(chromo_value, chromosome[i]);

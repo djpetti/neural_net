@@ -4,7 +4,7 @@
 
 namespace network {
 
-Neuron::Neuron() : 
+Neuron::Neuron() :
     // The default impulse function is no impulse function, aka. DumbOutputer.
     impulse_(new DumbOutputer()),
     bias_(0),
@@ -31,7 +31,7 @@ void Neuron::SetWeights(const std::vector<double>& values) {
 bool Neuron::AdjustWeights(double learning_rate, double momentum, double error) {
   std::vector<double> weights_buffer;
   if (weights_.size() == inputs_.size()) {
-    double signal = impulse_->Derivative(last_output_) * error; 
+    double signal = impulse_->Derivative(last_output_) * error;
     // Adjust bias, which is basically a weight with the input permanently set
     // at 1.
     SetBias(bias_ + (learning_rate * signal));
@@ -56,7 +56,7 @@ bool Neuron::GetOutput(double *output) {
     for (uint32_t i = 0; i < inputs_.size(); ++i) {
       sum += inputs_[i] * weights_[i];
     }
- 
+
     // Apply the impulse function.
     *output = impulse_->Function(sum);
     last_output_ = *output;

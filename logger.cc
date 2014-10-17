@@ -32,46 +32,46 @@ Logger *Logger::GetRoot() {
 }
 
 int Logger::Write(const char *file, int line,
-      Level level, const char *format, ...) {
-      va_list args;
-      va_start(args, format);
+    Level level, const char *format, ...) {
+  va_list args;
+  va_start(args, format);
 
-      // Get the message in string form.
-      char *message;
-      vasprintf(&message, format, args);
+  // Get the message in string form.
+  char *message;
+  vasprintf(&message, format, args);
 
-      // Format a complete line in the log.
-      time_t rawtime;
-      time(&rawtime);
-      char *time = ctime(&rawtime);
-      // Get rid of the newline.
-      int i = 0;
-      while (true) {
-        if (time[i] == '\n') {
-          time[i] = '\0';
-          break;
-        }
-        ++i;
-      }
-      const char *string_level = string_levels_[static_cast<int>(level)];
-      char *to_write;
-      asprintf(&to_write, "[%s %s %s:%d] %s\n",
-          string_level, time, file, line, message);
+  // Format a complete line in the log.
+  time_t rawtime;
+  time(&rawtime);
+  char *time = ctime(&rawtime);
+  // Get rid of the newline.
+  int i = 0;
+  while (true) {
+    if (time[i] == '\n') {
+      time[i] = '\0';
+      break;
+    }
+    ++i;
+  }
+  const char *string_level = string_levels_[static_cast<int>(level)];
+  char *to_write;
+  asprintf(&to_write, "[%s %s %s:%d] %s\n",
+      string_level, time, file, line, message);
 
-      int status = fprintf(file_, "%s", to_write);
-      fflush(file_);
-      if (static_cast<int>(level) >= static_cast<int>(printlevel_)) {
-        printf("%s", to_write);
-      }
+  int status = fprintf(file_, "%s", to_write);
+  fflush(file_);
+  if (static_cast<int>(level) >= static_cast<int>(printlevel_)) {
+    printf("%s", to_write);
+  }
 
-      free(message);
-      free(to_write);
-      if (level == Level::FATAL) {
-        // Fatal error, abort!
-        exit(1);
-      }
+  free(message);
+  free(to_write);
+  if (level == Level::FATAL) {
+    // Fatal error, abort!
+    exit(1);
+  }
 
-      return status;
-} 
+  return status;
+}
 
 } // helpers

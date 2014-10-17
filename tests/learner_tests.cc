@@ -50,7 +50,7 @@ TEST(BasicTests, SineWaveTest) {
   }
 
   EXPECT_TRUE(learner.Learn(0.03, 15000));
-  
+
   double actual [1];
   network.SetInputs(input);
   network.GetOutputs(actual);
