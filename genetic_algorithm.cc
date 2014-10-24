@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -46,8 +47,52 @@ bool GeneticAlgorithm::RemoveNetwork(Network *network) {
   return true;
 }
 
+void GeneticAlgorithm::SortedFitnesses(::std::vector<uint32_t> & sorted) {
+  for (auto & kv : networks_) {
+    sorted.push_back(kv.second);
+  }
+  ::std::sort(sorted.begin(), sorted.end());
+}
+
+void GeneticAlgorithm::BuildHallOfFame(uint64_t **chromosomes) {
+  hall_of_famers_.clear();
+
+  ::std::vector<uint32_t> fitnesses;
+  SortedFitnesses(fitnesses);
+  // Truncate to the ones that will be in our hall of fame.
+  fitnesses.erase(fitnesses.begin(), fitnesses.end() - hall_of_fame_size_);
+  CHECK(fitnesses.size() == hall_of_fame_size_,
+      "Did not get correctly sized fitness list.");
+
+  // Find the networks that go with these fitnesses.
+  int added = 0;
+  for (uint32_t i = 0; i < fitnesses.size(); ++i) {
+    int number_expected = 1;
+    LOG(Level::DEBUG, "Hall of fame fitness: %" PRIu32 ".", fitnesses[i]);
+    if (i < fitnesses.size() - 1 && fitnesses[i] == fitnesses[i + 1]) {
+      ++number_expected;
+      continue;
+    }
+
+    int found = 0;
+    for (auto & kv : networks_) {
+      if (kv.second == fitnesses[i]) {
+        hall_of_famers_.push_back(kv.first);
+        kv.first->GetChromosome(chromosomes[added++]);
+        if (++found == number_expected) {
+          break;
+        }
+      }
+    }
+  }
+}
+
 void GeneticAlgorithm::NextGeneration() {
   // Pick and mate networks until we have an entirely new set of networks.
+  if (networks_.empty()) {
+    return;
+  }
+
   // This array can get really huge, and that's why we need to put it on the
   // heap.
   uint64_t **chromosomes = new uint64_t *[networks_.size()];
@@ -55,7 +100,9 @@ void GeneticAlgorithm::NextGeneration() {
     chromosomes[i] = new uint64_t[chromosome_size_];
   }
 
-  for (uint32_t i = 0; i < networks_.size(); ++i) {
+  // Incorporate hall of fame organisms into the population.
+  BuildHallOfFame(chromosomes);
+  for (uint32_t i = hall_of_fame_size_; i < networks_.size(); ++i) {
     Mate(PickRoulette(), PickRoulette(), chromosomes[i]);
   }
 
@@ -88,11 +135,8 @@ Network *GeneticAlgorithm::GetFittest() {
 }
 
 double GeneticAlgorithm::GetAverageFitness() {
-  int sum = 0;
-  for (auto& kv : networks_) {
-    sum += kv.second;
-  }
-  return sum / networks_.size();
+  double average = total_fitness_ / networks_.size();
+  return average;
 }
 
 uint32_t GeneticAlgorithm::GetMaxFitness() {
@@ -106,6 +150,12 @@ uint32_t GeneticAlgorithm::GetMaxFitness() {
 void GeneticAlgorithm::UpdateFitness() {
   total_fitness_ = 0;
   for (auto& kv : networks_) {
+    if (::std::find(hall_of_famers_.begin(), hall_of_famers_.end(), kv.first) !=
+        hall_of_famers_.end()) {
+      // We already know the fitness for that one.
+      continue;
+    }
+
     int fitness = GetFitnessScore(kv.first);
     while (fitness < 0) {
       // Make a new offspring to replace this one.
@@ -125,19 +175,37 @@ Network *GeneticAlgorithm::PickRoulette() {
     // Just pick a random one.
     pick = rand() % networks_.size() + 1;
     int traversed = 0;
-    for (auto& kv : networks_) {
+    for (auto & kv : networks_) {
       if (++traversed >= pick) {
         return kv.first;
       }
     }
-  } else {
-    pick = rand() % total_fitness_;
   }
+
+  ::std::vector<uint32_t> fitnesses;
+  SortedFitnesses(fitnesses);
+  // Remove duplicates.
+  int total = fitnesses[0];
+  for (uint32_t i = 1; i < fitnesses.size(); ++i) {
+    if (fitnesses[i] == fitnesses[i - 1]) {
+      fitnesses.erase(fitnesses.begin() + i);
+      --i;
+    } else {
+      total += fitnesses[i];
+    }
+  }
+
+  pick = rand() % total;
+
   int traversed = 0;
-  for (auto& kv : networks_) {
-    traversed += kv.second;
+  for (auto fitness : fitnesses) {
+    traversed += fitness;
     if (traversed >= pick) {
-     return kv.first;
+      for (auto & kv : networks_) {
+        if (kv.second == fitness) {
+          return kv.first;
+        }
+      }
     }
   }
   CHECK(false, "Something weird happened.");

@@ -127,6 +127,7 @@ TEST_F(GABasicTest, MutationTest) {
 
   TestAlg alg (0, 1);
   ASSERT_TRUE(alg.AddNetwork(&network_));
+  MFNetwork network2(1, 1, 1);
   alg.NextGeneration();
 
   // Since mutation rate was one, we should have flipped all the bits.

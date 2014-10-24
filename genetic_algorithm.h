@@ -18,6 +18,7 @@
 #include <stdint.h>
 
 #include <map>
+#include <vector>
 
 #include "macros.h"
 #include "network.h"
@@ -53,6 +54,10 @@ class GeneticAlgorithm {
   inline uint32_t GetGeneration() {
     return generation_;
   }
+  // Specifies the hall of fame size.
+  inline void SetHallOfFameSize(uint32_t size) {
+    hall_of_fame_size_ = size;
+  }
 
   DISSALOW_COPY_AND_ASSIGN(GeneticAlgorithm);
 
@@ -76,13 +81,22 @@ class GeneticAlgorithm {
   network::Network *PickRoulette();
   // Takes two networks, and sets out_chromo to represent a
   // combined, mutated offspring.
-  void Mate(network::Network *mother, network::Network *father, 
-      uint64_t *out_chromo); 
+  void Mate(network::Network *mother, network::Network *father,
+      uint64_t *out_chromo);
+  // Puts members of the hall of fame in the next generation. <chromosomes> is
+  // the chromosomes array for the next generation.
+  void BuildHallOfFame(uint64_t **chromosomes);
+  // Populates a vector of sorted fitnesses.
+  void SortedFitnesses(::std::vector<uint32_t> & sorted);
 
+  // A vector of pointers to all the networks in our hall of fame.
+  ::std::vector<::network::Network *> hall_of_famers_;
   // A counter of our current generation.
   uint32_t generation_;
   // A measure of the total fitness of all networks.
   uint32_t total_fitness_;
+  // The size of the hall of fame.
+  uint32_t hall_of_fame_size_ = 0;
   // How many uint64_t's are in each chromosome.
   int chromosome_size_;
   // The crossover rate for all chromosomes.
