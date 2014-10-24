@@ -48,7 +48,12 @@ bool GeneticAlgorithm::RemoveNetwork(Network *network) {
 
 void GeneticAlgorithm::NextGeneration() {
   // Pick and mate networks until we have an entirely new set of networks.
-  uint64_t chromosomes [networks_.size()][chromosome_size_];
+  // This array can get really huge, and that's why we need to put it on the
+  // heap.
+  uint64_t **chromosomes = new uint64_t *[networks_.size()];
+  for (uint32_t i = 0; i < networks_.size(); ++i) {
+    chromosomes[i] = new uint64_t[chromosome_size_];
+  }
 
   for (uint32_t i = 0; i < networks_.size(); ++i) {
     Mate(PickRoulette(), PickRoulette(), chromosomes[i]);
@@ -65,6 +70,11 @@ void GeneticAlgorithm::NextGeneration() {
 
   // Update our fitness scores for the new generation.
   UpdateFitness();
+
+  for (uint32_t i = 0; i < networks_.size(); ++i) {
+    delete[] chromosomes[i];
+  }
+  delete[] chromosomes;
 }
 
 Network *GeneticAlgorithm::GetFittest() {
@@ -73,7 +83,7 @@ Network *GeneticAlgorithm::GetFittest() {
     if (kv.second == max) {
       return kv.first;
     }
-  } 
+  }
   return nullptr;
 }
 
@@ -127,7 +137,7 @@ Network *GeneticAlgorithm::PickRoulette() {
   for (auto& kv : networks_) {
     traversed += kv.second;
     if (traversed >= pick) {
-     return kv.first; 
+     return kv.first;
     }
   }
   CHECK(false, "Something weird happened.");
@@ -154,13 +164,13 @@ void GeneticAlgorithm::Mate(Network *mother,
     // Pick a recombination threshold.
     int recombine_after = rand() % bitlen;
     bool first_word = true;
-    for (int i = recombine_after / type_len; 
+    for (int i = recombine_after / type_len;
         i < chromosome_size_;
         ++i) {
       if (first_word) {
         // Our first word might be a partial one.
         first_word = false;
-        for (int bit = recombine_after % type_len; 
+        for (int bit = recombine_after % type_len;
             bit < type_len; ++bit) {
           if (chromosome2[i] & (shifter << bit)) {
             // We need a one here.
@@ -168,7 +178,7 @@ void GeneticAlgorithm::Mate(Network *mother,
           } else {
             // We need a zero here.
             out_chromo[i] &= ~(shifter << bit);
-          }      
+          }
         }
       } else {
         // Now, we can just switch whole elements, which is faster and easier.
