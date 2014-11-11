@@ -66,8 +66,8 @@ void GeneticAlgorithm::BuildHallOfFame(uint64_t **chromosomes) {
 
   // Find the networks that go with these fitnesses.
   int added = 0;
+  int number_expected = 1;
   for (uint32_t i = 0; i < fitnesses.size(); ++i) {
-    int number_expected = 1;
     LOG(Level::DEBUG, "Hall of fame fitness: %" PRIu32 ".", fitnesses[i]);
     if (i < fitnesses.size() - 1 && fitnesses[i] == fitnesses[i + 1]) {
       ++number_expected;
@@ -84,7 +84,12 @@ void GeneticAlgorithm::BuildHallOfFame(uint64_t **chromosomes) {
         }
       }
     }
+    CHECK(found == number_expected,
+          "Did not find expected number of networks.");
+    number_expected = 1;
   }
+  CHECK(added == static_cast<int>(hall_of_fame_size_),
+        "Did not put the right number of networks in hall of fame.");
 }
 
 void GeneticAlgorithm::NextGeneration() {
@@ -149,7 +154,7 @@ uint32_t GeneticAlgorithm::GetMaxFitness() {
 
 void GeneticAlgorithm::UpdateFitness() {
   total_fitness_ = 0;
-  for (auto& kv : networks_) {
+  for (auto & kv : networks_) {
     if (::std::find(hall_of_famers_.begin(), hall_of_famers_.end(), kv.first) !=
         hall_of_famers_.end()) {
       // We already know the fitness for that one.
@@ -165,7 +170,7 @@ void GeneticAlgorithm::UpdateFitness() {
       fitness = GetFitnessScore(kv.first);
     }
     total_fitness_ += fitness;
-    networks_[kv.first] = fitness;
+    kv.second = fitness;
   }
 }
 
@@ -208,7 +213,7 @@ Network *GeneticAlgorithm::PickRoulette() {
       }
     }
   }
-  CHECK(false, "Something weird happened.");
+  LOG(Level::FATAL, "Something weird happened.");
   return nullptr;
 }
 
