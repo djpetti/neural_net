@@ -21,7 +21,8 @@ class Network {
   // This is for extracting usable chromosome data from the network.
   // <chromosome> is the output.
   virtual bool GetChromosome(uint64_t *chromosome) = 0;
-  // We also care about the size of the chromosome.
+  // We also care about the size of the chromosome. Returns zero if it
+  // encounters an error. (Zero is not a valid output in any case.)
   virtual size_t GetChromosomeSize() = 0;
   // Sets the chromosome. Note that the size of the array passed in must be at
   // least equal to whatever GetChromosomeSize() returns.

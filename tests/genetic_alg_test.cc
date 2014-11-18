@@ -122,6 +122,7 @@ TEST_F(GABasicTest, FitnessTest) {
 TEST_F(GABasicTest, MutationTest) {
   // Can we successfully mutate chromosomes?
   size_t size = network_.GetChromosomeSize();
+  ASSERT_GE(size, 0);
   uint64_t initial [size];
   network_.GetChromosome(initial);
 
@@ -173,6 +174,7 @@ TEST(GATest, RecombinationTest) {
   bool current = false;
   bool current2 = false;
   size_t size = network.GetChromosomeSize();
+  ASSERT_GE(size, 0);
   uint64_t chromosome [size];
   uint64_t chromosome2 [size];
   network.GetChromosome(chromosome);

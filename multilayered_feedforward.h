@@ -47,12 +47,23 @@ class MFNetwork : public Network {
   }
   // Writes contents of array values to the inputs. Values must be the same
   // size as the number of inputs.
-  void SetInputs(double *values);
+  void SetInputs(const double *values);
   // Computes each neuron for the given inputs and writes the contents to the
   // array values. Values must be able to accomodate a number of items that is
   // at least the number of outputs. Returns true for success, false for
   // failure.
-  bool GetOutputs(double *values);
+  inline bool GetOutputs(double *values) {
+    return DoUpdate(values);
+  }
+  // Normally, the network sets user-specific and random weights when they are
+  // needed. Calling this function forces the network to set the weights right
+  // now.
+  inline bool ForceWeightUpdate() {
+    return DoUpdate(nullptr);
+  }
+  // Returns whether or not the network is initialized, AKA is ready to have its
+  // weights serialized.
+  bool CheckInitialized();
   // Sets neuron to point to the neuron in the layer specified by layer_i, which
   // indexes from 0, starting with the input layer, and neuron_i, which indexes
   // from 0. Returns nullptr upon failure.
@@ -63,11 +74,13 @@ class MFNetwork : public Network {
     use_special_weights_ = 1;
     upper_ = upper;
     lower_ = lower;
+    initialized_ = false;
   }
   // Sets all the weights in the network to <value>.
   void SetWeights(double value) {
     use_special_weights_ = 2;
     user_weight_ = value;
+    initialized_ = false;
   }
   // Sets the weights on all the inputs going into <layer_i> to <values>.
   bool SetLayerWeights(uint32_t layer_i, const std::vector<double>& values);
@@ -106,7 +119,7 @@ class MFNetwork : public Network {
   // a valid output in the first place. <final_outputs> allows the user to
   // provide output information to the function, saving the extra time to
   // calculate it.
-  bool PropagateError(double *targets, double *final_outputs = nullptr);
+  bool PropagateError(const double *targets, double *final_outputs = nullptr);
   // Constructs a network with the exact same architechture as this one. It
   // allocates it on the heap, and the caller MUST take ownership of it.
   // TODO(danielp): Get rid of this method, it's unnecessary and dumb.
@@ -117,6 +130,7 @@ class MFNetwork : public Network {
   // Returns the total number of neurons in the network.
   virtual uint32_t GetNeuronQuantity();
   // This one is for genetic algorithms. It returns the total number of weights.
+  // It also returns zero if it encounters an error.
   virtual size_t GetChromosomeSize();
   // Returns an array of the weights of the neurons. chromosome must have enough space
   // to store at least the number returned by GetChromosomeSize.
@@ -158,6 +172,9 @@ class MFNetwork : public Network {
   void DeserializeRoutes(uint32_t *routes);
   // Updates the default routing between <source> and <dest>
   void UpdateRouting(Layer_t *source, Layer_t *dest);
+  // Updates all the weights in the network. If values is not nullptr, it also
+  // puts the set inputs through the network and writes the outputs to values.
+  bool DoUpdate(double *values);
 
   uint32_t num_inputs_;
   uint32_t num_outputs_;
@@ -175,6 +192,8 @@ class MFNetwork : public Network {
   double learning_rate_;
   // The momentum for backpropagation.
   double momentum_;
+  // Whether or not the network is initialized.
+  bool initialized_ = false;
   // A vector of all our hidden layers. The MFNetwork destructor is also
   // responsible for freeing these.
   std::vector<Layer_t *> layers_;

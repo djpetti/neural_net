@@ -9,7 +9,7 @@
 #include "../output_functions.h"
 
 namespace network {
-namespace testing {
+namespace test {
 
 TEST(BasicTests, FullTest) {
   // Basically a one-pass test for everything.
@@ -89,17 +89,23 @@ TEST(BasicTests, XorTest) {
 
 TEST(BasicTests, FileIOTest) {
   // Can we save and load networks to and from files?
-  MFNetwork network(1, 1, 1);
+  const char *file_path = "test.bin";
+
+  MFNetwork network(1, 2, 3);
   network.AddHiddenLayer();
+  // It should fail because the weights aren't initialized.
+  EXPECT_FALSE(network.SaveToFile(file_path));
+  network.SetWeights(0);
 
   size_t chromo_size = network.GetChromosomeSize();
+  ASSERT_GE(chromo_size, 0);
   uint64_t chromosome1 [chromo_size];
   uint64_t chromosome2 [chromo_size];
   network.GetChromosome(chromosome1);
-  EXPECT_TRUE(network.SaveToFile("test.bin"));
+  EXPECT_TRUE(network.SaveToFile(file_path));
 
-  MFNetwork network2(2, 2, 2);
-  EXPECT_TRUE(network2.ReadFromFile("test.bin"));
+  MFNetwork network2(2, 3, 4);
+  EXPECT_TRUE(network2.ReadFromFile(file_path));
   network2.GetChromosome(chromosome2);
 
   EXPECT_EQ(network.HiddenLayerQuantity(), network2.HiddenLayerQuantity());
@@ -120,17 +126,20 @@ TEST(BackPropagationTests, DecreasingErrorTest) {
   Sigmoid sigmoid;
   network.SetOutputFunctions(&sigmoid);
 
-  double input = 0.01;
+  constexpr double input = 0.01;
+  constexpr double target = 0.5;
   network.SetInputs(&input);
 
   double initial_output;
   ASSERT_TRUE(network.GetOutputs(&initial_output));
-  double initial_error = fabs(0.5 - initial_output);
-  double target = 0.5;
+  const double initial_error = fabs(0.5 - initial_output);
   network.PropagateError(&target);
+
   double final_output;
+  network.SetInputs(&input);
   ASSERT_TRUE(network.GetOutputs(&final_output));
-  double final_error = fabs(0.5 - final_output);
+
+  const double final_error = fabs(0.5 - final_output);
   LOG(Level::INFO, "Initial error: %.10f", initial_error);
   LOG(Level::INFO, "Final error: %.10f", final_error);
   EXPECT_LE(final_error, initial_error);
@@ -144,6 +153,7 @@ TEST(GenAlgTest, ChromosomeMethodsTest) {
   network.SetBiases(1);
 
   int size = network.GetChromosomeSize();
+  ASSERT_GE(size, 0);
   uint64_t chromosome [size];
   ASSERT_TRUE(network.GetChromosome(chromosome));
 
@@ -168,5 +178,5 @@ TEST(GenAlgTest, ChromosomeMethodsTest) {
   }
 }
 
-} //testing
-} //network
+} //  test
+} //  network

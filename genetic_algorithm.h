@@ -67,6 +67,10 @@ class GeneticAlgorithm {
   // lifetime of the class, and there are no truly standard presets which
   // I can offer. It must take a pointer to the network you are evaluating.
   virtual int GetFitnessScore(network::Network *network) = 0;
+  // Checks that it is okay to add a network to our population.
+  // network: The network being checked.
+  bool CheckNetwork(::network::Network *network);
+
   // Maps each member of the population to its fitness score. Some subclasses
   // need this.
   std::map<network::Network *, uint32_t> networks_;

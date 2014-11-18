@@ -20,18 +20,29 @@ GeneticAlgorithm::GeneticAlgorithm(double crossover, double mutation) :
       srand(time(NULL));
 }
 
-bool GeneticAlgorithm::AddNetwork(Network *network) {
-  // Update the network's fitness score, to give the fitness function a chance
-  // to properly initialize our network.
-  int fitness = GetFitnessScore(network);
+bool GeneticAlgorithm::CheckNetwork(Network *network) {
+  if (!network->GetChromosomeSize()) {
+    return false;
+  }
   if (chromosome_size_ != -1 &&
-      network->GetChromosomeSize() != (size_t)chromosome_size_) {
+      network->GetChromosomeSize() != static_cast<size_t>(chromosome_size_)) {
     return false;
   }
   chromosome_size_ = network->GetChromosomeSize();
   if (!chromosome_size_) {
     return false;
   }
+  return true;
+}
+
+bool GeneticAlgorithm::AddNetwork(Network *network) {
+  // Update the network's fitness score, to give the fitness function a chance
+  // to properly initialize our network.
+  int fitness = GetFitnessScore(network);
+  if (!CheckNetwork(network)) {
+    return false;
+  }
+
   networks_[network] = fitness;
   total_fitness_ += fitness;
   return true;

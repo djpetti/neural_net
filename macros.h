@@ -8,7 +8,7 @@
 
 // This requires c++ '11.
 #define DISSALOW_COPY_AND_ASSIGN(T) \
-    T & operator=(const T&) = delete; \
-    T(const T&) = delete;
+    T & operator=(const T & other) = delete; \
+    T(const T & other) = delete;
 
 #endif

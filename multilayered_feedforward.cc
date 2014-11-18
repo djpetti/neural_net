@@ -92,7 +92,7 @@ void MFNetwork::AddHiddenLayer(int size/* = -1*/) {
   }
 }
 
-void MFNetwork::SetInputs(double *values) {
+void MFNetwork::SetInputs(const double *values) {
   // Write to our buffer. (It will get sent to the input layer later.)
   layer_input_buffer_.clear();
   for (uint32_t i = 0; i < num_inputs_; ++i) {
@@ -100,7 +100,7 @@ void MFNetwork::SetInputs(double *values) {
   }
 }
 
-bool MFNetwork::GetOutputs(double *values) {
+bool MFNetwork::DoUpdate(double *values) {
   if (!HiddenLayerQuantity()) {
     // Our network won't work without at least one hidden layer, and it will be
     // pretty useless.
@@ -116,7 +116,9 @@ bool MFNetwork::GetOutputs(double *values) {
     for (uint32_t neuron_i = 0; neuron_i < layer->Neurons.size(); ++neuron_i) {
       Neuron *neuron = layer->Neurons[neuron_i];
       // Set the inputs that we're using for this neuron.
-      neuron->SetInputs(layer_input_buffer_[neuron_i]);
+      if (values) {
+        neuron->SetInputs(layer_input_buffer_[neuron_i]);
+      }
 
       if (use_special_weights_) {
         // We might need new weights for our neuron if the number of
@@ -148,11 +150,18 @@ bool MFNetwork::GetOutputs(double *values) {
         neuron->SetWeights(weights);
       }
 
-      double out;
-      if (!neuron->GetOutput(&out)) {
-        return false;
+      if (values) {
+        // If we're just setting weights, there's no point in wasting time doing
+        // this.
+        double out;
+        if (!neuron->GetOutput(&out)) {
+          return false;
+        }
+        layer_output_buffer[neuron_i] = out;
+      } else {
+        // Just put zeroes into out output buffer.
+        layer_output_buffer[neuron_i] = 0;
       }
-      layer_output_buffer[neuron_i] = out;
     }
 
     // First clear all the output vectors.
@@ -175,10 +184,39 @@ bool MFNetwork::GetOutputs(double *values) {
     // Should be insured by special routing map for output layer.
     CHECK(layer_input_buffer_[i].size() == 1,
         "Invalid routing for output layer.");
-    values[i] = layer_input_buffer_[i][0];
+    if (values) {
+      values[i] = layer_input_buffer_[i][0];
+    }
   }
 
+  initialized_ = true;
   return true;
+}
+
+bool MFNetwork::CheckInitialized() {
+  if (initialized_) {
+    return true;
+  }
+  if (use_special_weights_) {
+    // In this case, simply forcing weight updating will make us initialized.
+    LOG(Level::DEBUG, "CheckInitialized(): forcing weight update.");
+    return ForceWeightUpdate();
+  } else {
+    // Check that all our neurons have weights set. (Even if it's not the
+    // correct number of weights, it will still be able to write the network to
+    // and from a file and set/get it's chromosome correctly, which is all that
+    // we care about here.)
+    for (auto layer : layers_) {
+      for (auto neuron : layer->Neurons) {
+        if (!neuron->GetNumWeights()) {
+          return false;
+        }
+      }
+    }
+
+    initialized_ = true;
+    return true;
+  }
 }
 
 Neuron *MFNetwork::GetNeuron(uint32_t layer_i, uint32_t neuron_i) {
@@ -279,11 +317,11 @@ bool MFNetwork::CopyLayout(const MFNetwork& source) {
   return true;
 }
 
-bool MFNetwork::PropagateError(double *targets,
+bool MFNetwork::PropagateError(const double *targets,
     double *final_outputs/* = nullptr*/) {
   double outputs [num_outputs_];
   std::vector<double> internal;
-  if (final_outputs == nullptr) {
+  if (!final_outputs) {
     GetOutputs(outputs);
   } else {
     // We can skip calculating outputs.
@@ -363,12 +401,15 @@ uint32_t MFNetwork::GetNeuronQuantity() {
 }
 
 size_t MFNetwork::GetChromosomeSize() {
+  if (!CheckInitialized()) {
+    return 0;
+  }
+
   int num_weights = 0;
   for (uint32_t layer_i = 1; layer_i < layers_.size(); ++layer_i) {
     Layer_t *layer = layers_[layer_i];
     for (Neuron *neuron : layer->Neurons) {
       num_weights += neuron->GetNumWeights();
-      // Bias weight.
       ++num_weights;
     }
   }
@@ -377,6 +418,10 @@ size_t MFNetwork::GetChromosomeSize() {
 }
 
 bool MFNetwork::GetChromosome(uint64_t *chromosome) {
+  if (!CheckInitialized()) {
+    return false;
+  }
+
   std::vector<double> neuron_weights;
   int weights_i = 0;
   for (uint32_t layer_i = 1; layer_i < layers_.size(); ++layer_i) {
@@ -396,12 +441,19 @@ bool MFNetwork::GetChromosome(uint64_t *chromosome) {
 }
 
 bool MFNetwork::SetChromosome(uint64_t *chromosome) {
+  // Zero all our weights and force a network update so that we can make sure
+  // that GetNumWeights() will return the right number.
+  SetWeights(0);
+  if (!ForceWeightUpdate()) {
+    return false;
+  }
+
   int weights_i = 0;
   for (uint32_t layer_i = 1; layer_i < layers_.size(); ++layer_i) {
     Layer_t *layer = layers_[layer_i];
     for (Neuron *neuron : layer->Neurons) {
-      int weights_num = neuron->GetNumWeights();
-      int max_index = weights_i + weights_num - 1;
+      const int weights_num = neuron->GetNumWeights();
+      const int max_index = weights_i + weights_num - 1;
       std::vector<double> weights_v;
       for (; weights_i <= max_index; ++weights_i) {
         double weight;
@@ -475,6 +527,10 @@ void MFNetwork::UpdateRouting(Layer_t *source, Layer_t *dest) {
 }
 
 bool MFNetwork::SaveToFile(const char *path) {
+  if (!CheckInitialized()) {
+    return false;
+  }
+
   FILE *out_file = fopen(path, "w");
   if (!out_file) {
     return false;
@@ -496,10 +552,8 @@ bool MFNetwork::SaveToFile(const char *path) {
   // Save hidden layer size information.
   uint32_t num_hidden = HiddenLayerQuantity();
   uint32_t layer_sizes[num_hidden];
-  if (num_hidden > 0) {
-    for (uint32_t i = 0; i < HiddenLayerQuantity(); ++i) {
-      layer_sizes[i] = layers_[i]->Neurons.size();
-    }
+  for (uint32_t i = 0; i < num_hidden; ++i) {
+    layer_sizes[i] = layers_[i + 1]->Neurons.size();
   }
   fwrite(&num_hidden, sizeof(num_hidden), 1, out_file);
   if (num_hidden > 0) {
@@ -577,8 +631,8 @@ bool MFNetwork::ReadFromFile(const char *path) {
   fclose(in_file);
 
   // Set our neuron weights and layer routings.
-  SetChromosome(chromosome);
   DeserializeRoutes(routes);
+  SetChromosome(chromosome);
 
   return true;
 }
