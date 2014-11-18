@@ -7,9 +7,11 @@
 
 // Logging macros, similar to FRC team 971's logging implementation. (Which I
 // think is itself based off of glog...)
+// The "##" is a special gcc thing that means "delete the previous comma if we
+// get no arguments after format."
 #define LOG(level, format, ...) \
     helpers::Logger::GetRoot()->Write( \
-    __FILE__, __LINE__, level, format, __VA_ARGS__);
+    __FILE__, __LINE__, level, format, ##__VA_ARGS__);
 #ifndef NDEBUG
 #   define CHECK(condition, message) \
     do { \
