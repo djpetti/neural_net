@@ -13,14 +13,14 @@
     helpers::Logger::GetRoot()->Write( \
     __FILE__, __LINE__, level, format, ##__VA_ARGS__);
 #ifndef NDEBUG
-#   define CHECK(condition, message) \
+#define CHECK(condition, format, ...) \
     do { \
         if (!(condition)) { \
-          LOG(Level::FATAL, "%s", message); \
+          LOG(Level::FATAL, format, ##__VA_ARGS__); \
         } \
     } while (false)
 #else
-#define CHECK(condition, message) do { } while (false)
+#define CHECK(condition, format, ...) do { } while (false)
 #endif
 
 // Enum for logging levels.
