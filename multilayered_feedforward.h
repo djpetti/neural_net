@@ -45,6 +45,9 @@ class MFNetwork : public Network {
       return 0;
     }
   }
+  // Removes the layer at the specified index. Trying to remove the input or
+  // output layers results in it returning false.
+  bool RemoveLayer(uint32_t index);
   // Writes contents of array values to the inputs. Values must be the same
   // size as the number of inputs.
   void SetInputs(const double *values);

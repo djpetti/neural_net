@@ -92,6 +92,19 @@ void MFNetwork::AddHiddenLayer(int size/* = -1*/) {
   }
 }
 
+bool MFNetwork::RemoveLayer(uint32_t index) {
+  if (!index || index >= layers_.size() - 1) {
+    LOG(Level::WARNING, "Cannot remove layer at index %d.");
+    return false;
+  }
+
+  Layer_t *to_delete = layers_[index];
+  layers_.erase(layers_.begin() + index);
+  delete to_delete;
+
+  return true;
+}
+
 void MFNetwork::SetInputs(const double *values) {
   // Write to our buffer. (It will get sent to the input layer later.)
   layer_input_buffer_.clear();
@@ -542,12 +555,15 @@ bool MFNetwork::SaveToFile(const char *path) {
       static_cast<int32_t>(num_outputs_),
       static_cast<int32_t>(layer_size_),
       static_cast<int32_t>(use_special_weights_),
+      static_cast<int32_t>(initialized_),
       upper_,
       lower_ };
+  const size_t basic_info_size = sizeof(basic_info) / sizeof(int32_t);
   double weight_info[] = {
       user_weight_};
-  fwrite(basic_info, sizeof(basic_info[0]), 6, out_file);
-  fwrite(weight_info, sizeof(weight_info[0]), 1, out_file);
+  const size_t weight_info_size = sizeof(weight_info) / sizeof(double);
+  fwrite(basic_info, sizeof(basic_info[0]), basic_info_size, out_file);
+  fwrite(weight_info, sizeof(weight_info[0]), weight_info_size, out_file);
 
   // Save hidden layer size information.
   uint32_t num_hidden = HiddenLayerQuantity();
@@ -587,17 +603,22 @@ bool MFNetwork::ReadFromFile(const char *path) {
   }
 
   // Retrieve basic info.
-  int32_t basic_info [6];
-  double weight_info [1];
-  fread(basic_info, sizeof(basic_info[0]), 6, in_file);
-  fread(weight_info, sizeof(weight_info[0]), 1, in_file);
-  num_inputs_ = basic_info[0];
-  num_outputs_ = basic_info[1];
-  layer_size_ = basic_info[2];
-  use_special_weights_ = basic_info[3];
-  upper_ = basic_info[4];
-  lower_ = basic_info[5];
-  user_weight_ = weight_info[0];
+  constexpr size_t basic_info_size = 7;
+  constexpr size_t weight_info_size = 1;
+  int32_t basic_info [basic_info_size];
+  double weight_info [weight_info_size];
+  fread(basic_info, sizeof(basic_info[0]), basic_info_size, in_file);
+  fread(weight_info, sizeof(weight_info[0]), weight_info_size, in_file);
+  int basic_info_index = 0;
+  num_inputs_ = basic_info[basic_info_index++];
+  num_outputs_ = basic_info[basic_info_index++];
+  layer_size_ = basic_info[basic_info_index++];
+  use_special_weights_ = basic_info[basic_info_index++];
+  initialized_ = basic_info[basic_info_index++];
+  upper_ = basic_info[basic_info_index++];
+  lower_ = basic_info[basic_info_index++];
+  int weight_info_index = 0;
+  user_weight_ = weight_info[weight_info_index++];
 
   // Retrieve hidden layer sizes.
   uint32_t num_hidden;
