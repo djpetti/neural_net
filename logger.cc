@@ -26,13 +26,17 @@ Logger::~Logger() {
 
 Logger *Logger::GetRoot() {
   if (root_logger_ == nullptr) {
-    root_logger_ = new Logger("neural_net.log");
+    root_logger_ = new Logger(kLogFileBaseName);
   }
   return root_logger_;
 }
 
 int Logger::Write(const char *file, int line,
     Level level, const char *format, ...) {
+  if (!file_) {
+    return -1;
+  }
+
   va_list args;
   va_start(args, format);
 
@@ -59,6 +63,9 @@ int Logger::Write(const char *file, int line,
       string_level, time, file, line, message);
 
   int status = fprintf(file_, "%s", to_write);
+  if (status >= 0) {
+    bytes_written_ += status;
+  }
   fflush(file_);
   if (static_cast<int>(level) >= static_cast<int>(printlevel_)) {
     printf("%s", to_write);
@@ -71,7 +78,24 @@ int Logger::Write(const char *file, int line,
     exit(1);
   }
 
+  char *new_name;
+  char date[11 + 1 + 8];
+  tm *timeinfo;
+  timeinfo = localtime(&rawtime);
+  strftime(date, 11 + 1 + 8, "%F_%T", timeinfo);
+  asprintf(&new_name, "%s.%s", kLogFileBaseName, date);
+  if (bytes_written_ >= kMaxFileBytes) {
+    // Start a new log file.
+    fclose(file_);
+    rename(kLogFileBaseName, new_name);
+    file_ = fopen(kLogFileBaseName, "w");
+    bytes_written_ = 0;
+  }
+  free(new_name);
+
   return status;
 }
+
+const char *Logger::kLogFileBaseName = "neural_net.log";
 
 } // helpers

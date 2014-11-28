@@ -48,10 +48,15 @@ class Logger {
   inline static void Show(Level level) {
     printlevel_ = level;
   }
- 
+
   DISSALOW_COPY_AND_ASSIGN(Logger);
 
  private:
+  // How many bytes we'll write before we split out a new file.
+  const int kMaxFileBytes = 10000000;
+  // The name we use for our log file.
+  static const char *kLogFileBaseName;
+
   // Constructor requires the name of the logfile.
   explicit Logger(const char *filename);
   static Logger *root_logger_;
@@ -61,7 +66,10 @@ class Logger {
   static const char *string_levels_ [5];
   // The lowest level to print to stdout.
   static Level printlevel_;
+  // How many bytes we've written to this file.
+  int bytes_written_ = 0;
 };
 
 } // helpers
+
 #endif
