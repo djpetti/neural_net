@@ -539,17 +539,76 @@ void MFNetwork::UpdateRouting(Layer_t *source, Layer_t *dest) {
   }
 }
 
+size_t MFNetwork::GetSerializedSize() {
+  if (!CheckInitialized()) {
+    return 0;
+  }
+
+  size_t size = 0;
+  size += kBasicInfoSize * sizeof(int32_t);
+  size += kWeightInfoSize * sizeof(double);
+
+  // Number of hidden layers.
+  size += sizeof(uint32_t);
+  // Hidden layer sizes.
+  size += HiddenLayerQuantity() * sizeof(uint32_t);
+
+  // Number of routes.
+  size += sizeof(uint32_t);
+  // Serialized routes array.
+  size += GetNumRoutes() * sizeof(uint32_t);
+
+  // Chromosome size.
+  size += sizeof(uint32_t);
+  // Chromosome array.
+  size += GetChromosomeSize() * sizeof(uint64_t);
+
+  return size;
+}
+
 bool MFNetwork::SaveToFile(const char *path) {
+  // Serialize the network into a buffer.
+  const size_t buffer_size = GetSerializedSize();
+  if (!buffer_size) {
+    LOG(Level::ERROR, "Failed to get size of serialized network.");
+    return false;
+  }
+
+  char buffer[buffer_size];
+  const size_t bytes_written = Serialize(buffer);
+  if (bytes_written != buffer_size) {
+    LOG(Level::ERROR, "Wrote %zu bytes to buffer instead of %zu.",
+        bytes_written, buffer_size);
+    return false;
+  }
+
+  // Write the buffer contents to a file.
+  FILE *out_file = fopen(path, "wb");
+  if (!out_file) {
+    LOG(Level::ERROR, "Failed to open %s for writing.", path);
+    return false;
+  }
+  const size_t bytes_to_file =
+      fwrite(buffer, sizeof(buffer[0]), buffer_size, out_file);
+  if (bytes_to_file != buffer_size) {
+    LOG(Level::ERROR, "Wrote %zu bytes to file instead of %zu.",
+        bytes_to_file, buffer_size);
+        fclose(out_file);
+    return false;
+  }
+  fclose(out_file);
+
+  return true;
+}
+
+size_t MFNetwork::Serialize(char *buffer) {
+  char *const original_buffer = buffer;
+
   if (!CheckInitialized()) {
     return false;
   }
 
-  FILE *out_file = fopen(path, "w");
-  if (!out_file) {
-    return false;
-  }
-
-  // Save basic network information to the file.
+  // Save basic network information.
   int32_t basic_info [] = {
       static_cast<int32_t>(num_inputs_),
       static_cast<int32_t>(num_outputs_),
@@ -559,11 +618,19 @@ bool MFNetwork::SaveToFile(const char *path) {
       upper_,
       lower_ };
   const size_t basic_info_size = sizeof(basic_info) / sizeof(int32_t);
+  CHECK(basic_info_size == kBasicInfoSize,
+        "Size of basic_info should be %zu, is actually %zu.",
+        kBasicInfoSize, basic_info_size);
   double weight_info[] = {
       user_weight_};
   const size_t weight_info_size = sizeof(weight_info) / sizeof(double);
-  fwrite(basic_info, sizeof(basic_info[0]), basic_info_size, out_file);
-  fwrite(weight_info, sizeof(weight_info[0]), weight_info_size, out_file);
+  CHECK(weight_info_size == kWeightInfoSize,
+        "Size of weight_info should be %zu, is actually %zu.",
+        kWeightInfoSize, weight_info_size);
+  memcpy(buffer, basic_info, sizeof(basic_info[0]) * basic_info_size);
+  buffer += sizeof(basic_info[0]) * basic_info_size;
+  memcpy(buffer, weight_info, sizeof(weight_info[0]) * weight_info_size);
+  buffer += sizeof(weight_info[0]) * weight_info_size;
 
   // Save hidden layer size information.
   uint32_t num_hidden = HiddenLayerQuantity();
@@ -571,44 +638,80 @@ bool MFNetwork::SaveToFile(const char *path) {
   for (uint32_t i = 0; i < num_hidden; ++i) {
     layer_sizes[i] = layers_[i + 1]->Neurons.size();
   }
-  fwrite(&num_hidden, sizeof(num_hidden), 1, out_file);
+  memcpy(buffer, &num_hidden, sizeof(num_hidden));
+  buffer += sizeof(num_hidden);
   if (num_hidden > 0) {
-    fwrite(layer_sizes, sizeof(layer_sizes[0]), num_hidden, out_file);
+    memcpy(buffer, layer_sizes, sizeof(layer_sizes[0]) * num_hidden);
+    buffer += sizeof(layer_sizes[0]) * num_hidden;
   }
 
-  // Save our routing information from the layers structures.
+  // Save our routing information from the layer structures.
   uint32_t num_routes = GetNumRoutes();
-  fwrite(&num_routes, sizeof(num_routes), 1, out_file);
+  memcpy(buffer, &num_routes, sizeof(num_routes));
+  buffer += sizeof(num_routes);
   uint32_t routes [num_routes];
   SerializeRoutes(routes);
-  fwrite(routes, sizeof(int), num_routes, out_file);
+  memcpy(buffer, routes, sizeof(routes[0]) * num_routes);
+  buffer += sizeof(routes[0]) * num_routes;
 
   // Save the size of our chromosome and our actual chromosome so we can recover
   // our weights later.
   uint32_t size = GetChromosomeSize();
-  fwrite(&size, sizeof(size), 1, out_file);
+  memcpy(buffer, &size, sizeof(size));
+  buffer += sizeof(size);
   uint64_t chromosome [size];
   GetChromosome(chromosome);
-  fwrite(chromosome, sizeof(chromosome[0]), size, out_file);
+  memcpy(buffer, chromosome, sizeof(chromosome[0]) * size);
+  buffer += sizeof(chromosome[0]) * size;
 
-  fclose(out_file);
+  return buffer - original_buffer;
+}
+
+bool MFNetwork::ReadFromFile(const char *path) {
+  FILE *in_file = fopen(path, "rb");
+  if (!in_file) {
+    LOG(Level::ERROR, "Failed to open %s for reading.", path);
+    return false;
+  }
+
+  // Get size of file.
+  fseek(in_file, 0L, SEEK_END);
+  const int length = ftell(in_file);
+  LOG(Level::DEBUG, "Got file length: %d.", length);
+  fseek(in_file, 0L, SEEK_SET);
+
+  // Copy file contents into a buffer.
+  char buffer[length];
+  const size_t bytes_read = fread(buffer, sizeof(buffer[0]), length, in_file);
+  if (bytes_read != static_cast<size_t>(length)) {
+    LOG(Level::ERROR, "Read %zu bytes from file instead of %d.",
+        bytes_read, length);
+    fclose(in_file);
+    return false;
+  }
+  fclose(in_file);
+
+  // Deserialize from the buffer.
+  size_t bytes_processed = Deserialize(buffer);
+  if (bytes_processed != static_cast<size_t>(length)) {
+    LOG(Level::ERROR, "Deserialized %zu bytes instead of %d.",
+        bytes_processed, length);
+    return false;
+  }
 
   return true;
 }
 
-bool MFNetwork::ReadFromFile(const char *path) {
-  FILE *in_file = fopen(path, "r");
-  if (!in_file) {
-    return false;
-  }
+size_t MFNetwork::Deserialize(const char *buffer) {
+  const char *const original_buffer = buffer;
 
   // Retrieve basic info.
-  constexpr size_t basic_info_size = 7;
-  constexpr size_t weight_info_size = 1;
-  int32_t basic_info [basic_info_size];
-  double weight_info [weight_info_size];
-  fread(basic_info, sizeof(basic_info[0]), basic_info_size, in_file);
-  fread(weight_info, sizeof(weight_info[0]), weight_info_size, in_file);
+  int32_t basic_info [kBasicInfoSize];
+  double weight_info [kWeightInfoSize];
+  memcpy(basic_info, buffer, sizeof(basic_info[0]) * kBasicInfoSize);
+  buffer += sizeof(basic_info[0]) * kBasicInfoSize;
+  memcpy(weight_info, buffer, sizeof(weight_info[0]) * kWeightInfoSize);
+  buffer += sizeof(weight_info[0]) * kWeightInfoSize;
   int basic_info_index = 0;
   num_inputs_ = basic_info[basic_info_index++];
   num_outputs_ = basic_info[basic_info_index++];
@@ -617,15 +720,19 @@ bool MFNetwork::ReadFromFile(const char *path) {
   initialized_ = basic_info[basic_info_index++];
   upper_ = basic_info[basic_info_index++];
   lower_ = basic_info[basic_info_index++];
+
+  // Retrieve weight info.
   int weight_info_index = 0;
   user_weight_ = weight_info[weight_info_index++];
 
   // Retrieve hidden layer sizes.
   uint32_t num_hidden;
-  fread(&num_hidden, sizeof(num_hidden), 1, in_file);
+  memcpy(&num_hidden, buffer, sizeof(num_hidden));
+  buffer += sizeof(num_hidden);
   uint32_t layer_sizes [num_hidden];
   if (num_hidden > 0) {
-    fread(layer_sizes, sizeof(layer_sizes[0]), num_hidden, in_file);
+    memcpy(layer_sizes, buffer, sizeof(layer_sizes[0]) * num_hidden);
+    buffer += sizeof(layer_sizes[0]) * num_hidden;
   }
 
   // Our ctor already added two layers, but possibly without knowing the correct
@@ -639,23 +746,25 @@ bool MFNetwork::ReadFromFile(const char *path) {
 
   // Retrieve routing info.
   uint32_t num_routes;
-  fread(&num_routes, sizeof(num_routes), 1, in_file);
+  memcpy(&num_routes, buffer, sizeof(num_routes));
+  buffer += sizeof(num_routes);
   uint32_t routes [num_routes];
-  fread(routes, sizeof(routes[0]), num_routes, in_file);
+  memcpy(routes, buffer, sizeof(routes[0]) * num_routes);
+  buffer += sizeof(routes[0]) * num_routes;
 
   // Retrieve chromosome.
   uint32_t size;
-  fread(&size, sizeof(size), 1, in_file);
+  memcpy(&size, buffer, sizeof(size));
+  buffer += sizeof(size);
   uint64_t chromosome [size];
-  fread(chromosome, sizeof(chromosome[0]), size, in_file);
-
-  fclose(in_file);
+  memcpy(chromosome, buffer, sizeof(chromosome[0]) * size);
+  buffer += sizeof(chromosome[0]) * size;
 
   // Set our neuron weights and layer routings.
   DeserializeRoutes(routes);
   SetChromosome(chromosome);
 
-  return true;
+  return buffer - original_buffer;
 }
 
 } //network

@@ -30,7 +30,7 @@ class GeneticAlgorithm {
  public:
   // The ctor lets you specify crossover and mutation rates.
   GeneticAlgorithm(double crossover, double mutation);
-  // Adds a new network to the algorithm's population. 
+  // Adds a new network to the algorithm's population.
   // The chromosome size is set by the first one added, adding
   // different sized ones will cause it to return false.
   bool AddNetwork(network::Network *network);

@@ -54,7 +54,7 @@ bool GeneticAlgorithm::RemoveNetwork(Network *network) {
     return false;
   }
   networks_.erase(it);
-  
+
   return true;
 }
 

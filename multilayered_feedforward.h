@@ -23,7 +23,6 @@ namespace network {
 
 class MFNetwork : public Network {
   friend class algorithm::SupervisedLearner;
- 
  public:
   // inputs is the number of input neurons, outputs is the number of output
   // neurons, and layer_size is the number of neurons in each hidden layer.
@@ -91,7 +90,7 @@ class MFNetwork : public Network {
   void SetOutputFunctions(ImpulseFunction *impulse);
   // Sets the same impulse function for all the neurons in a layer. <layer_i> is
   // the index of said layer.
-  bool SetLayerOutputFunctions(uint32_t layer_i, 
+  bool SetLayerOutputFunctions(uint32_t layer_i,
       ImpulseFunction *impulse);
   // Sets the bias weight for all the neurons in the network.
   void SetBiases(double bias);
@@ -101,7 +100,7 @@ class MFNetwork : public Network {
   // Specifies that a neuron in a layer ouputs to a specific group of neurons in
   // the next layer. All neurons and layers are referred to by index. Returns
   // true for success, false if any of the indices given are invalid.
-  bool SetOutputRoute(uint32_t layer_i, uint32_t neuron_i, 
+  bool SetOutputRoute(uint32_t layer_i, uint32_t neuron_i,
     const std::vector<int>& output_nodes);
   // Copies the architechture of <source> into this network, but keeps the weights of
   // this network set to 1.
@@ -142,14 +141,24 @@ class MFNetwork : public Network {
   // chromosome. Note that weights must have a size equal to the number
   // GetNumWeights returns.
   virtual bool SetChromosome(uint64_t *chromosome);
+  // Gets the size of the serialized network. This will return zero if the
+  // network's weights are not and cannot be initialized.
+  size_t GetSerializedSize();
   // Saves a network to a file for future use. Returns true if it writes
   // successfully, false if it doesn't.
   bool SaveToFile(const char *path);
+  // Serializes a network into a buffer. The stored network can then be restored
+  // with Deserialize().
+  // Returns: The number of bytes written to the buffer.
+  size_t Serialize(char *buffer);
   // Reads a network previously saved to a file into memory. Note that the
   // neuron impulse functions are NOT saved to and read from the file, they must
   // be set manually. (Writing ImpulseFunction-derived classes to and from files
   // results in undefined behavior.)
   bool ReadFromFile(const char *path);
+  // Restores a network serialized with Serialize() from a buffer.
+  // Returns: The number of bytes read from the buffer.
+  size_t Deserialize(const char *buffer);
 
  private:
   // A struct to represent a layer.
@@ -161,7 +170,7 @@ class MFNetwork : public Network {
     std::vector<Neuron *> Neurons;
     // Specifies which neurons in the next layer the output from each neuron in
     // this layer is routed to.
-    std::map<int, std::vector<int> > RoutingMap; 
+    std::map<int, std::vector<int> > RoutingMap;
   };
 
   // Writes an array representation of all the routes in the network, which can
@@ -177,7 +186,17 @@ class MFNetwork : public Network {
   void UpdateRouting(Layer_t *source, Layer_t *dest);
   // Updates all the weights in the network. If values is not nullptr, it also
   // puts the set inputs through the network and writes the outputs to values.
+  // It's advantageous to not do weight updates until the absolute last minute,
+  // because this implementation does not fix the layout of the network, and
+  // allows it to change at any time. Therefore, this is the easiest way to
+  // ensure that everything has properly initialized weights, and probably the
+  // only solution that doesn't devolve into a complete mess.
   bool DoUpdate(double *values);
+
+  // The number of elements in the basic_info array when serializing.
+  const size_t kBasicInfoSize = 7;
+  // The number of elements in the weight_info array when serializing.
+  const size_t kWeightInfoSize = 1;
 
   uint32_t num_inputs_;
   uint32_t num_outputs_;
