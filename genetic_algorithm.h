@@ -79,8 +79,6 @@ class GeneticAlgorithm {
   // Goes through all the networks in the population and recalculates fitness
   // scores for them.
   void UpdateFitness();
-  // Returns either a fitness or -1 if the organism is not viable.
-  int GetViableFitness(network::Network *network);
   // Goes and gets a network by simulated roulette.
   network::Network *PickRoulette();
   // Takes two networks, and sets out_chromo to represent a
